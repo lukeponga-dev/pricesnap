@@ -139,11 +139,46 @@ export default async function handler(req: Request) {
       }
     }
 
+    const recPrice = Number(data.resale_price_nz || data.market?.recommended_price || 120);
+    const normalizedMarket = {
+      trademe: {
+        low: Number(data.market?.trademe?.low || Math.round(recPrice * 0.85)),
+        median: Number(data.market?.trademe?.median || recPrice),
+        high: Number(data.market?.trademe?.high || Math.round(recPrice * 1.15)),
+        sample_listings: Array.isArray(data.market?.trademe?.sample_listings) ? data.market.trademe.sample_listings : []
+      },
+      facebook: {
+        low: Number(data.market?.facebook?.low || Math.round(recPrice * 0.8)),
+        median: Number(data.market?.facebook?.median || Math.round(recPrice * 0.94)),
+        high: Number(data.market?.facebook?.high || Math.round(recPrice * 1.05)),
+        sample_listings: Array.isArray(data.market?.facebook?.sample_listings) ? data.market.facebook.sample_listings : []
+      },
+      ebay: {
+        low: Number(data.market?.ebay?.low || Math.round(recPrice * 0.9)),
+        median: Number(data.market?.ebay?.median || Math.round(recPrice * 1.08)),
+        high: Number(data.market?.ebay?.high || Math.round(recPrice * 1.25)),
+        sample_listings: Array.isArray(data.market?.ebay?.sample_listings) ? data.market.ebay.sample_listings : []
+      },
+      trend: data.market?.trend || "stable",
+      recommended_price: recPrice,
+      best_platform: data.market?.best_platform || "Trade Me"
+    };
+
+    const finalData = {
+      ...data,
+      market: normalizedMarket,
+      price: {
+        low: normalizedMarket.trademe.low,
+        average: recPrice,
+        high: normalizedMarket.trademe.high
+      }
+    };
+
     return new Response(
       JSON.stringify({
         ok: true,
-        appraisal: data,
-        ...data
+        appraisal: finalData,
+        ...finalData
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );

@@ -249,21 +249,21 @@ export function validateAndNormalizeAppraisal(data: any): any {
 
   const market = {
     trademe: {
-      low: Number(rawMarket.trademe?.low ?? Math.round(recPrice * 0.85)),
-      median: Number(rawMarket.trademe?.median ?? recPrice),
-      high: Number(rawMarket.trademe?.high ?? Math.round(recPrice * 1.15)),
+      low: Number(rawMarket.trademe?.low || Math.round(recPrice * 0.85)),
+      median: Number(rawMarket.trademe?.median || recPrice),
+      high: Number(rawMarket.trademe?.high || Math.round(recPrice * 1.15)),
       sample_listings: Array.isArray(rawMarket.trademe?.sample_listings) ? rawMarket.trademe.sample_listings : []
     },
     facebook: {
-      low: Number(rawMarket.facebook?.low ?? Math.round(recPrice * 0.8)),
-      median: Number(rawMarket.facebook?.median ?? Math.round(recPrice * 0.94)),
-      high: Number(rawMarket.facebook?.high ?? Math.round(recPrice * 1.05)),
+      low: Number(rawMarket.facebook?.low || Math.round(recPrice * 0.8)),
+      median: Number(rawMarket.facebook?.median || Math.round(recPrice * 0.94)),
+      high: Number(rawMarket.facebook?.high || Math.round(recPrice * 1.05)),
       sample_listings: Array.isArray(rawMarket.facebook?.sample_listings) ? rawMarket.facebook.sample_listings : []
     },
     ebay: {
-      low: Number(rawMarket.ebay?.low ?? Math.round(recPrice * 0.9)),
-      median: Number(rawMarket.ebay?.median ?? Math.round(recPrice * 1.08)),
-      high: Number(rawMarket.ebay?.high ?? Math.round(recPrice * 1.25)),
+      low: Number(rawMarket.ebay?.low || Math.round(recPrice * 0.9)),
+      median: Number(rawMarket.ebay?.median || Math.round(recPrice * 1.08)),
+      high: Number(rawMarket.ebay?.high || Math.round(recPrice * 1.25)),
       sample_listings: Array.isArray(rawMarket.ebay?.sample_listings) ? rawMarket.ebay.sample_listings : []
     },
     trend: rawMarket.trend || data.trend || "stable",
@@ -280,6 +280,11 @@ export function validateAndNormalizeAppraisal(data: any): any {
     resale_price_nz: resalePriceNz,
     confidence: confidence,
     market: market,
+    price: {
+      low: market.trademe.low,
+      average: recPrice,
+      high: market.trademe.high
+    },
     // UI mapping
     product: {
       name: name,
@@ -391,23 +396,30 @@ SCHEMA:
 }
 `;
 
-          const response = await ai.models.generateContent({
-            model: "models/gemini-3.6-flash",
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    inlineData: {
-                      data: base64Data,
-                      mimeType
-                    }
-                  },
-                  { text: PRICESNAP_PROMPT }
-                ]
-              }
-            ]
-          });
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Gemini API call timed out after 9 seconds")), 9000)
+          );
+
+          const response: any = await Promise.race([
+            ai.models.generateContent({
+              model: "models/gemini-3.6-flash",
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      inlineData: {
+                        data: base64Data,
+                        mimeType
+                      }
+                    },
+                    { text: PRICESNAP_PROMPT }
+                  ]
+                }
+              ]
+            }),
+            timeoutPromise
+          ]);
 
           rawEngineJson = response.text || (response as any)?.response?.text?.() || "";
         } catch (geminiErr: any) {

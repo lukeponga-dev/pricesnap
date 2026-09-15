@@ -7,9 +7,9 @@
  *   - Fonts: Cache-First (don't waste bandwidth refetching)
  */
 
-const STATIC_CACHE = 'pricenames-static-v1';
-const RUNTIME_CACHE = 'pricenames-runtime-v1';
-const HTML_CACHE = 'pricenames-html-v1';
+const STATIC_CACHE = 'pricenames-static-v3';
+const RUNTIME_CACHE = 'pricenames-runtime-v3';
+const HTML_CACHE = 'pricenames-html-v3';
 
 // Pre-cache on install — PriceSnap shell
 const PRECACHE_URLS = [
@@ -53,6 +53,19 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET requests
   if (request.method !== 'GET') return;
+
+  // Development & Vite assets → Always Network directly to avoid stale cache
+  if (
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.includes('node_modules') ||
+    url.pathname.includes('vite') ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1'
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // Navigation → Network-First, offline HTML fallback
   if (request.mode === 'navigate') {

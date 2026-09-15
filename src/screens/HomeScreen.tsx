@@ -123,26 +123,34 @@ export default function HomeScreen() {
             </div>
             
             <div className="space-y-3">
-              {history.slice(0, 3).map((scan, idx) => (
-                <div 
-                  key={idx}
-                  onClick={() => {
-                    setScreen('history');
-                  }}
-                  className="pw-card flex items-center gap-3 p-3 cursor-pointer hover:bg-navy-800/50 transition-colors"
-                >
-                  <span className="text-2xl">{scan.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-display font-semibold text-sm text-ink truncate">{scan.name}</h3>
-                    <p className="text-xs text-ink-faint">{scan.date}</p>
+              {history.slice(0, 3).map((scan, idx) => {
+                const anyScan = scan as any;
+                const name = scan.product?.name || anyScan.name || anyScan.item_name || 'Item';
+                const date = scan.date || anyScan.meta?.timestamp || 'Recently';
+                const emoji = anyScan.emoji || '📦';
+                const price = scan.market?.recommended_price ?? anyScan.price?.average ?? anyScan.resale_price_nz ?? 0;
+
+                return (
+                  <div 
+                    key={idx}
+                    onClick={() => {
+                      setScreen('history');
+                    }}
+                    className="pw-card flex items-center gap-3 p-3 cursor-pointer hover:bg-navy-800/50 transition-colors"
+                  >
+                    <span className="text-2xl">{emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-display font-semibold text-sm text-ink truncate">{name}</h3>
+                      <p className="text-xs text-ink-faint">{date}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-display font-bold text-sm text-snap">
+                        {formatCurrency(price)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-display font-bold text-sm text-snap">
-                      {formatCurrency(scan.price.average)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (

@@ -44,6 +44,27 @@ export interface PriceSnapResult {
   id?: string;
   date?: string;
   isMock?: boolean;
+  item_category?: string;
+  item_name?: string;
+  brand?: string | null;
+  condition_score?: number;
+  defects?: string[];
+  resale_price_nz?: number;
+  confidence?: number;
+  price?: {
+    low: number;
+    average: number;
+    high: number;
+  };
+  platforms?: Array<{
+    name: string;
+    low?: number;
+    median?: number;
+    high?: number;
+    data?: MarketPlatformData;
+  }>;
+  emoji?: string;
+  name?: string;
   meta?: {
     timestamp: string;
     analysis_id: string;

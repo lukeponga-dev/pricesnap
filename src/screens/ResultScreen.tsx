@@ -64,31 +64,45 @@ export default function ResultScreen() {
   );
 
   const trademeData = {
-    low: Number(rawMarket.trademe?.low ?? (anyScan.price?.low ?? Math.round(recPrice * 0.85))),
-    median: Number(rawMarket.trademe?.median ?? (anyScan.price?.average ?? recPrice)),
-    high: Number(rawMarket.trademe?.high ?? (anyScan.price?.high ?? Math.round(recPrice * 1.15))),
-    sample_listings: Array.isArray(rawMarket.trademe?.sample_listings) ? rawMarket.trademe.sample_listings : []
+    low: Number(rawMarket?.trademe?.low ?? (anyScan?.price?.low ?? Math.round(recPrice * 0.85))),
+    median: Number(rawMarket?.trademe?.median ?? (anyScan?.price?.average ?? recPrice)),
+    high: Number(rawMarket?.trademe?.high ?? (anyScan?.price?.high ?? Math.round(recPrice * 1.15))),
+    sample_listings: Array.isArray(rawMarket?.trademe?.sample_listings) ? rawMarket.trademe.sample_listings : []
   };
 
   const facebookData = {
-    low: Number(rawMarket.facebook?.low ?? Math.round(recPrice * 0.8)),
-    median: Number(rawMarket.facebook?.median ?? Math.round(recPrice * 0.94)),
-    high: Number(rawMarket.facebook?.high ?? Math.round(recPrice * 1.05)),
-    sample_listings: Array.isArray(rawMarket.facebook?.sample_listings) ? rawMarket.facebook.sample_listings : []
+    low: Number(rawMarket?.facebook?.low ?? Math.round(recPrice * 0.8)),
+    median: Number(rawMarket?.facebook?.median ?? Math.round(recPrice * 0.94)),
+    high: Number(rawMarket?.facebook?.high ?? Math.round(recPrice * 1.05)),
+    sample_listings: Array.isArray(rawMarket?.facebook?.sample_listings) ? rawMarket.facebook.sample_listings : []
   };
 
   const ebayData = {
-    low: Number(rawMarket.ebay?.low ?? Math.round(recPrice * 0.9)),
-    median: Number(rawMarket.ebay?.median ?? Math.round(recPrice * 1.08)),
-    high: Number(rawMarket.ebay?.high ?? Math.round(recPrice * 1.25)),
-    sample_listings: Array.isArray(rawMarket.ebay?.sample_listings) ? rawMarket.ebay.sample_listings : []
+    low: Number(rawMarket?.ebay?.low ?? Math.round(recPrice * 0.9)),
+    median: Number(rawMarket?.ebay?.median ?? Math.round(recPrice * 1.08)),
+    high: Number(rawMarket?.ebay?.high ?? Math.round(recPrice * 1.25)),
+    sample_listings: Array.isArray(rawMarket?.ebay?.sample_listings) ? rawMarket.ebay.sample_listings : []
   };
 
-  const platforms = [
-    { name: 'Trade Me (NZ)', data: trademeData },
-    { name: 'Facebook Marketplace', data: facebookData },
-    { name: 'eBay (Global)', data: ebayData },
-  ];
+  const rawPlatforms = Array.isArray(rawMarket?.platforms) 
+    ? rawMarket.platforms 
+    : (Array.isArray(anyScan?.platforms) ? anyScan.platforms : null);
+
+  const platforms = rawPlatforms 
+    ? rawPlatforms.map((p: any) => ({
+        name: p?.name || 'Marketplace',
+        data: {
+          low: Number(p?.data?.low ?? p?.low ?? Math.round(recPrice * 0.85)),
+          median: Number(p?.data?.median ?? p?.median ?? p?.price ?? recPrice),
+          high: Number(p?.data?.high ?? p?.high ?? Math.round(recPrice * 1.15)),
+          sample_listings: Array.isArray(p?.data?.sample_listings) ? p.data.sample_listings : (Array.isArray(p?.sample_listings) ? p.sample_listings : [])
+        }
+      }))
+    : [
+        { name: 'Trade Me (NZ)', data: trademeData },
+        { name: 'Facebook Marketplace', data: facebookData },
+        { name: 'eBay (Global)', data: ebayData },
+      ];
 
   const trend = (rawMarket.trend || 'stable').toLowerCase();
   const bestPlatform = rawMarket.best_platform || 'Trade Me';
@@ -213,16 +227,20 @@ export default function ResultScreen() {
           <span className="text-[10px] text-ink-faint font-mono">NZD Estimates</span>
         </div>
         
-        {platforms.map((plat) => {
-          const low = plat.data.low;
-          const median = plat.data.median;
-          const high = plat.data.high;
-          const listings = plat.data.sample_listings;
+        {platforms.map((plat: any, idx: number) => {
+          const platData = plat?.data || plat || {};
+          const low = Number(platData?.low ?? (plat?.low ?? Math.round(recPrice * 0.85)));
+          const median = Number(platData?.median ?? (plat?.median ?? recPrice));
+          const high = Number(platData?.high ?? (plat?.high ?? Math.round(recPrice * 1.15)));
+          const listings = Array.isArray(platData?.sample_listings) 
+            ? platData.sample_listings 
+            : (Array.isArray(plat?.sample_listings) ? plat.sample_listings : []);
+          const platName = plat?.name || `Marketplace ${idx + 1}`;
 
           return (
-            <div key={plat.name} className="pw-card">
+            <div key={platName || idx} className="pw-card">
               <div className="flex justify-between items-center mb-2.5">
-                <span className="font-display font-semibold text-ink text-sm">{plat.name}</span>
+                <span className="font-display font-semibold text-ink text-sm">{platName}</span>
                 <span className="text-xs font-semibold text-snap bg-snap/10 px-2 py-0.5 rounded border border-snap/20">
                   {formatCurrency(median)} avg
                 </span>
