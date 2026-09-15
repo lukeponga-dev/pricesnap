@@ -4,22 +4,18 @@ export const config = {
   runtime: "edge"
 };
 
-function getAiClient(): GoogleGenAI {
-  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing GOOGLE_AI_STUDIO_API_KEY or GEMINI_API_KEY environment variable.");
-  }
-  return new GoogleGenAI({ apiKey });
-}
+const ai = new GoogleGenAI({
+  apiKey: process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY
+});
 
 // Strict JSON schema prompt
 const PRICESNAP_PROMPT = `
-You are PriceSnap Vision, a strict JSON-only appraisal engine for the New Zealand secondhand and resale market.
+You are PriceSnap Vision, a strict JSON-only appraisal engine.
 
 RULES:
 - Output ONLY valid JSON.
 - No text before or after the JSON.
-- No markdown code blocks (no \`\`\`json).
+- No markdown.
 - No explanations.
 - If uncertain, return null fields but keep structure.
 
@@ -48,40 +44,19 @@ SCHEMA:
     "trademe": { "low": 0, "median": 0, "high": 0, "sample_listings": [] },
     "facebook": { "low": 0, "median": 0, "high": 0, "sample_listings": [] },
     "ebay": { "low": 0, "median": 0, "high": 0, "sample_listings": [] },
-    "trend": "rising",
+    "trend": "",
     "recommended_price": 0,
-    "best_platform": "Trade Me"
+    "best_platform": ""
   }
 }
 `;
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
-      }
-    });
-  }
-
-  if (req.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "METHOD_NOT_ALLOWED", message: "Only POST requests are supported." }),
-      { status: 405, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
+export default async function handler(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const rawImage = body.image || body.imageUrl || body.imageBase64;
+    const body = await req.json();
+    const { image } = body;
 
-    // -------------------------------
-    // 1. Ingestion validation
-    // -------------------------------
-    if (!rawImage || typeof rawImage !== "string") {
+    if (!image) {
       return new Response(
         JSON.stringify({
           error: "NO_IMAGE",
@@ -91,18 +66,7 @@ export default async function handler(req: Request): Promise<Response> {
       );
     }
 
-    let mimeType = "image/jpeg";
-    let base64Data = rawImage;
-
-    if (rawImage.startsWith("data:")) {
-      const mimeMatch = rawImage.match(/^data:([^;]+);base64,(.+)$/);
-      if (mimeMatch) {
-        mimeType = mimeMatch[1];
-        base64Data = mimeMatch[2];
-      } else {
-        base64Data = rawImage.replace(/^data:image\/[a-z]+;base64,/, "");
-      }
-    }
+    const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, "");
 
     if (base64Data.length > 20_000_000) {
       return new Response(
@@ -114,50 +78,32 @@ export default async function handler(req: Request): Promise<Response> {
       );
     }
 
-    // -------------------------------
-    // 2. Call Gemma / Gemini Vision
-    // -------------------------------
-    const ai = getAiClient();
+    // Gemini 3.6 Flash (new required model)
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // swap to gemma-2-vision when available
+      model: "models/gemini-3.6-flash",
       contents: [
         {
-          inlineData: {
-            data: base64Data,
-            mimeType
-          }
-        },
-        {
-          text: PRICESNAP_PROMPT
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: "image/jpeg"
+              }
+            },
+            { text: PRICESNAP_PROMPT }
+          ]
         }
-      ],
-      config: {
-        responseMimeType: "application/json"
-      }
+      ]
     });
 
-    // -------------------------------
-    // 3. Extract raw text safely & sanitize
-    // -------------------------------
     const raw = response.text || (response as any)?.response?.text?.() || "";
+    const clean = raw.trim().replace(/^[^{]+/, "").replace(/[^}]+$/, "");
 
-    // Strip thinking blocks, markdown fences, and isolate outer JSON braces
-    let clean = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-    clean = clean.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-
-    const firstBrace = clean.indexOf("{");
-    const lastBrace = clean.lastIndexOf("}");
-
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-      clean = clean.substring(firstBrace, lastBrace + 1).trim();
-    } else {
-      clean = clean.replace(/^[^{]+/, "").replace(/[^}]+$/, "");
-    }
-
-    let data: any;
+    let data;
     try {
       data = JSON.parse(clean);
-    } catch (err: any) {
+    } catch (err) {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -168,9 +114,6 @@ export default async function handler(req: Request): Promise<Response> {
       );
     }
 
-    // -------------------------------
-    // 4. Schema validation
-    // -------------------------------
     const required = [
       "item_category",
       "item_name",
@@ -196,29 +139,20 @@ export default async function handler(req: Request): Promise<Response> {
       }
     }
 
-    // -------------------------------
-    // 5. Final safe response
-    // -------------------------------
     return new Response(
       JSON.stringify({
         ok: true,
         appraisal: data,
         ...data
       }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
-      }
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
 
   } catch (error: any) {
     return new Response(
       JSON.stringify({
         error: "AI_STUDIO_UNREACHABLE",
-        message: error.message || "Failed to communicate with AI Studio."
+        message: error.message
       }),
       { status: 502, headers: { "Content-Type": "application/json" } }
     );
