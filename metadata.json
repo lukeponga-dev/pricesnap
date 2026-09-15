@@ -1,0 +1,10 @@
+{
+  "name": "PriceSnap",
+  "description": "AI item scanner with live market search for Trade Me, Facebook Marketplace, and eBay.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

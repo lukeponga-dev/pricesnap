@@ -1,0 +1,127 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap");
+
+@layer base {
+  html {
+    @apply bg-navy-950 text-ink antialiased font-body text-base;
+    scroll-behavior: smooth;
+  }
+
+  body { @apply min-h-screen; }
+
+  h1 { @apply text-3xl font-display font-semibold text-ink tracking-tight; }
+  h2 { @apply text-2xl font-display font-semibold text-ink tracking-tight; }
+  h3 { @apply text-xl font-display font-medium text-ink; }
+  p  { @apply text-base leading-relaxed text-ink/80; }
+
+  ::selection { background: rgba(16, 185, 129, 0.2); color: #0F172A; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #F8FAFC; }
+  ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
+}
+
+@layer components {
+  /* Buttons */
+  .pw-btn {
+    @apply inline-flex items-center justify-center gap-2
+           bg-snap text-white rounded-btn px-6 py-3
+           font-display font-semibold text-base
+           transition-transform duration-100 active:scale-95
+           hover:bg-snap-light cursor-pointer shadow-sm;
+  }
+  .pw-btn-outline {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-ink border border-surface rounded-btn
+           px-6 py-3 font-display font-medium text-base
+           transition-transform duration-100 active:scale-95
+           hover:bg-navy-900 cursor-pointer;
+  }
+  .pw-btn-soft {
+    @apply inline-flex items-center justify-center gap-2
+           bg-snap/10 text-snap border border-snap/20 rounded-btn
+           px-6 py-3 font-display font-medium text-base
+           transition-transform duration-100 active:scale-95
+           hover:bg-snap/15 cursor-pointer;
+  }
+
+  /* Cards */
+  .pw-card { @apply bg-white rounded-card p-5 shadow-card border border-surface; }
+  .pw-card-sm { @apply bg-white rounded-lg p-3 shadow-card border border-surface; }
+
+  /* Tags */
+  .pw-tag {
+    @apply inline-block bg-snap/10 text-snap rounded-tag
+           px-2.5 py-0.5 text-xs font-medium border border-snap/20;
+  }
+  .pw-tag-amber {
+    @apply inline-block bg-amber/10 text-amber rounded-tag
+           px-2.5 py-0.5 text-xs font-medium border border-amber/20;
+  }
+  .pw-tag-lime {
+    @apply inline-block bg-lime/10 text-lime rounded-tag
+           px-2.5 py-0.5 text-xs font-medium border border-lime/20;
+  }
+
+  /* Inputs */
+  .pw-input {
+    @apply w-full rounded-btn border border-surface bg-white/40
+           px-4 py-3 text-base text-ink placeholder:text-ink-faint
+           font-body focus:border-snap focus:outline-none focus:ring-1
+           focus:ring-snap/30 transition-colors;
+  }
+
+  /* Bottom Nav */
+  .pw-bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md
+           border-t border-surface flex justify-around py-2 z-40;
+  }
+  .pw-nav-link {
+    @apply flex flex-col items-center gap-0.5 px-4 py-1
+           text-xs font-medium text-ink-faint transition-colors
+           hover:text-snap;
+  }
+  .pw-nav-link-active { @apply text-snap; }
+
+  /* Scan line */
+  .pw-scan-line {
+    @apply absolute left-0 right-0 h-0.5 rounded-full
+           bg-gradient-to-r from-transparent via-snap to-transparent
+           animate-scan-line;
+  }
+
+  /* Stats */
+  .pw-stat-value { @apply font-display font-bold text-snap; }
+  .pw-stat-label { @apply text-xs text-ink-faint uppercase tracking-wider mt-1; }
+
+  /* Sections & Container */
+  .pw-section { @apply py-8 px-4; }
+  @media (min-width: 768px) { .pw-section { @apply py-12 px-8; } }
+
+  .pw-container { @apply max-w-2xl mx-auto px-5; }
+  @media (min-width: 768px) { .pw-container { @apply max-w-3xl px-8; } }
+
+  /* Text helpers */
+  .pw-text-heading { @apply font-display font-semibold text-ink tracking-tight; }
+  .pw-text-body { @apply text-ink/70 leading-relaxed; }
+  .pw-text-meta { @apply text-xs text-ink-faint font-mono; }
+
+  /* Gradient */
+  .pw-gradient-text { @apply bg-gradient-to-r from-snap to-lime bg-clip-text text-transparent; }
+
+  /* Glow */
+  .pw-glow { box-shadow: 0 0 20px rgba(16, 185, 129, 0.1); }
+  .pw-glow-lg { box-shadow: 0 0 40px rgba(16, 185, 129, 0.15); }
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

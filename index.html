@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PriceSnap</title>
+    <meta name="description" content="AI item scanner with live market search for Trade Me, Facebook Marketplace, and eBay. Get real-time resale values for secondhand goods in seconds." />
+    <meta property="og:title" content="PriceSnap" />
+    <meta property="og:description" content="AI item scanner with live market search for Trade Me, Facebook Marketplace, and eBay. Get real-time resale values for secondhand goods in seconds." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- PriceSnap PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0A1628" />
+    <meta name="background-color" content="#0A1628" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PriceSnap" />
+    <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+    <meta name="application-name" content="PriceSnap" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // ── Register Service Worker ──────────────
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((reg) => {
+              console.log('[PriceSnap] SW registered:', reg.scope);
+            })
+            .catch((err) => {
+              console.error('[PriceSnap] SW registration failed:', err);
+            });
+        });
+      }
+
+      // ── Install Prompt ───────────────────────
+      let deferredPrompt = null;
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+
+        const installBtn = document.querySelector('.install-btn');
+        if (installBtn) {
+          installBtn.style.display = 'inline-flex';
+          installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              console.log('[PriceSnap] Install:', outcome);
+              deferredPrompt = null;
+              installBtn.style.display = 'none';
+            }
+          });
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        console.log('[PriceSnap] Installed');
+      });
+
+      // ── Online/Offline indicator (optional) ──
+      function updateOnlineStatus() {
+        const status = document.querySelector('.net-status');
+        if (status) {
+          status.textContent = navigator.onLine ? 'online' : 'offline';
+          status.style.color = navigator.onLine ? '#10B981' : '#EF4444';
+        }
+      }
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+    </script>
+  </body>
+</html>
+
