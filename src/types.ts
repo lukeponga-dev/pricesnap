@@ -2,10 +2,15 @@ export type Screen = 'home' | 'scanner' | 'analyzing' | 'result' | 'history' | '
 
 export interface ProductInfo {
   name: string;
-  brand: string;
+  item_name?: string;
+  brand: string | null;
   category: string;
-  condition_grade: string;
+  item_category?: string;
+  condition_score?: number; // 1-10
+  condition_grade?: string; // A, B, C, D
+  defects?: string[];
   issues?: string[];
+  resale_price_nz?: number;
   confidence: number;
   confidence_color?: string;
   summary?: string;
@@ -31,6 +36,7 @@ export interface PriceSnapResult {
   product: ProductInfo;
   market: MarketInfo;
   condition?: {
+    score?: number;
     grade: string;
     issues: string[];
     summary: string;

@@ -39,19 +39,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: imageBase64, imageBase64 })
+        body: JSON.stringify({ image: imageBase64, imageUrl: imageBase64, imageBase64 })
       });
       
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error || 'Analysis failed');
+        throw new Error(data?.message || data?.error || 'Analysis failed');
       }
       
-      setCurrentScan(data);
+      const appraisalData = data.appraisal ? { ...data.appraisal, ...data } : data;
+      setCurrentScan(appraisalData);
       setScreen('result');
 
-      if (data.isMock) {
+      if (appraisalData.isMock) {
         showToast('Demo Mode: Using local appraisal data.');
       }
     } catch (err: any) {
