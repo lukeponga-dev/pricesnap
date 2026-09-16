@@ -1,74 +1,8 @@
-export type Screen = 'landing' | 'home' | 'scanner' | 'analyzing' | 'result' | 'history' | 'settings' | 'pitch' | 'privacy' | 'orchestration';
-
-export interface ProductInfo {
-  name: string;
-  item_name?: string;
-  brand: string | null;
-  category: string;
-  item_category?: string;
-  condition_score?: number; // 1-10
-  condition_grade?: string; // A, B, C, D
-  defects?: string[];
-  issues?: string[];
-  resale_price_nz?: number;
-  confidence: number;
-  confidence_color?: string;
-  summary?: string;
-}
-
-export interface MarketPlatformData {
-  low: number;
-  median: number;
-  high: number;
-  sample_listings?: string[];
-}
-
-export interface MarketInfo {
-  trademe: MarketPlatformData;
-  facebook: MarketPlatformData;
-  ebay: MarketPlatformData;
-  trend: string;
-  recommended_price: number;
-  best_platform: string;
-}
-
-export interface PriceSnapResult {
-  product: ProductInfo;
-  market: MarketInfo;
-  condition?: {
-    score?: number;
-    grade: string;
-    issues: string[];
-    summary: string;
-  };
-  id?: string;
-  date?: string;
-  isMock?: boolean;
-  item_category?: string;
-  item_name?: string;
-  brand?: string | null;
-  condition_score?: number;
-  defects?: string[];
-  resale_price_nz?: number;
-  confidence?: number;
-  price?: {
-    low: number;
-    average: number;
-    high: number;
-  };
-  platforms?: Array<{
-    name: string;
-    low?: number;
-    median?: number;
-    high?: number;
-    data?: MarketPlatformData;
-  }>;
-  emoji?: string;
-  name?: string;
-  meta?: {
-    timestamp: string;
-    analysis_id: string;
-  };
-}
-
-export type ScanResult = PriceSnapResult;
+export type Screen = 'landing'|'home'|'scanner'|'analyzing'|'result'|'history'|'settings'|'pitch'|'privacy'|'orchestration';
+export type AnalysisState = 'idle'|'uploading'|'identifying'|'grounding'|'complete'|'error';
+export interface ComparableListing { source:'ebay'|'trademe'|'facebook'|'other'; title:string; url:string; priceNzd:number; condition:string|null; retrievedAt:string; }
+export interface MarketPlatformData { low:number|null; median:number|null; high:number|null; sample_listings:ComparableListing[]; evidence_count:number; }
+export interface MarketInfo { trademe:MarketPlatformData|null; facebook:MarketPlatformData|null; ebay:MarketPlatformData|null; trend:'rising'|'stable'|'falling'|null; recommended_price:number|null; best_platform:string|null; grounded:boolean; }
+export interface ProductInfo { name:string|null; brand:string|null; category:string|null; condition_score:number|null; condition_grade:string|null; defects:string[]; resale_price_nz:number|null; confidence:number|null; confidence_color:'green'|'orange'|'red'; summary:string; }
+export interface PriceSnapResult { status:'identified'|'unidentified'; ok?:true; id:string; date:string; item:string|null; item_category:string|null; item_name:string|null; brand:string|null; conditionScore:number|null; condition_score:number|null; defects:string[]; resale_price_nz:number|null; confidence:number|null; market:MarketInfo|null; product:ProductInfo; appraisal?:unknown; meta:{timestamp:string;analysis_id:string;request_id:string;model:string;duration_ms:number;grounding_duration_ms:number}; }
+export type ScanResult=PriceSnapResult;
