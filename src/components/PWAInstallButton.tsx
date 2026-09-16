@@ -16,10 +16,10 @@ export const PWAInstallButton: React.FC = () => {
     return (
       <button
         onClick={install}
-        className="pw-btn px-4 py-2 text-sm shadow-card"
+        className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-snap text-navy-950 hover:bg-snap/90 flex items-center gap-1.5 transition-all shadow-md shadow-snap/10"
       >
-        <Download className="w-4 h-4" />
-        <span>Install App</span>
+        <Download className="w-3.5 h-3.5" />
+        <span>Install</span>
       </button>
     );
   }
@@ -30,10 +30,10 @@ export const PWAInstallButton: React.FC = () => {
       <>
         <button
           onClick={() => setShowIOSGuide(true)}
-          className="pw-btn-outline px-4 py-2 text-sm shadow-card"
+          className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-navy-900 hover:bg-navy-800 text-ink border border-surface flex items-center gap-1.5 transition-all"
         >
-          <Share className="w-4 h-4 text-snap" />
-          <span>Install on iOS</span>
+          <Share className="w-3.5 h-3.5 text-snap" />
+          <span>iOS Guide</span>
         </button>
 
         {showIOSGuide && (

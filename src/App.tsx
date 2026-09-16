@@ -10,6 +10,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import HomeScreen from './screens/HomeScreen';
 import PitchDeckScreen from './screens/PitchDeckScreen';
 import PrivacyScreen from './screens/PrivacyScreen';
+import LandingScreen from './screens/LandingScreen';
 
 const variants = {
   initial: (direction: number) => ({
@@ -31,7 +32,7 @@ function MainFlow() {
 
   return (
     <div className="w-full max-w-md mx-auto h-[100dvh] bg-navy-950 flex flex-col relative overflow-hidden font-body text-ink transition-colors selection:bg-snap/20 sm:h-screen sm:border-x border-surface/50 shadow-[0_0_100px_rgba(0,0,0,0.1)]">
-      {screen !== 'pitch' && <Header />}
+      {screen !== 'pitch' && screen !== 'landing' && <Header />}
       
       <div className="flex-1 relative overflow-hidden">
         <AnimatePresence initial={false} custom={direction} mode="wait">
@@ -45,6 +46,7 @@ function MainFlow() {
             transition={{ type: "spring", stiffness: 350, damping: 35 }}
             className="absolute inset-0"
           >
+            {screen === 'landing' && <LandingScreen />}
             {screen === 'home' && <HomeScreen />}
             {screen === 'scanner' && <ScannerScreen />}
             {screen === 'analyzing' && <AnalyzingScreen />}
@@ -57,7 +59,7 @@ function MainFlow() {
         </AnimatePresence>
       </div>
       
-      {screen !== 'pitch' && <BottomNav />}
+      {screen !== 'pitch' && screen !== 'landing' && <BottomNav />}
       <Toast />
     </div>
   );

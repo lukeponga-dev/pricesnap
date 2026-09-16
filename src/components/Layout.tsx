@@ -31,10 +31,14 @@ export function Header() {
           </button>
         )}
         {(screen === 'home' || screen === 'scanner' || screen === 'history' || screen === 'settings') && (
-          <div className="flex items-center gap-2">
-            <Logo className="w-8 h-8" />
+          <button 
+            onClick={() => setScreen('landing')}
+            className="flex items-center gap-2 hover:opacity-85 transition-opacity text-left group"
+            title="Return to Landing Page"
+          >
+            <Logo className="w-8 h-8 group-hover:scale-105 transition-transform" />
             <span className="font-display font-semibold text-ink hidden sm:block tracking-tight text-sm">PriceSnap</span>
-          </div>
+          </button>
         )}
       </div>
 
