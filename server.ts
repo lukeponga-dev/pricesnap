@@ -493,6 +493,31 @@ SCHEMA:
   app.post("/api/analyze", handlePriceSnap);
   app.post("/api/pricesnap", handlePriceSnap);
 
+  app.get("/api/ping", (req, res) => {
+    res.status(200).json({
+      status: "ok",
+      service: "pricesnap-backend",
+      timestamp: Date.now()
+    });
+  });
+
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({
+      status: "healthy",
+      service: "pricesnap-backend",
+      hasApiKey: !!(process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY),
+      timestamp: Date.now()
+    });
+  });
+
+  app.get("/api/version", (req, res) => {
+    res.status(200).json({
+      version: "1.0.0",
+      service: "pricesnap-backend",
+      runtime: "node/edge"
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
