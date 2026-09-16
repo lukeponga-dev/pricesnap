@@ -7,6 +7,7 @@ import { formatCurrency, triggerHaptic } from '../utils';
 export default function ResultScreen() {
   const { currentScan, setScreen, addToHistory } = useAppState();
   const [showJson, setShowJson] = useState(false);
+  const [showConfidenceModal, setShowConfidenceModal] = useState(false);
 
   if (!currentScan) return null;
 
@@ -135,17 +136,28 @@ export default function ResultScreen() {
           <p className="text-xs text-ink-faint mt-0.5">{product.brand || 'Generic'} • {product.category || 'General'}</p>
         </div>
         <div className="flex flex-col items-end shrink-0">
-          <div className={`pw-tag flex items-center gap-1 mb-1 border px-2 py-0.5 rounded text-xs font-medium ${
-            confidenceColor === 'green' 
-              ? 'text-lime border-lime/30 bg-lime/10' 
-              : confidenceColor === 'orange' 
-                ? 'text-amber border-amber/30 bg-amber/10' 
-                : 'text-rose-400 border-rose-400/30 bg-rose-400/10'
-          }`}>
-            <CheckCircle2 className="w-3 h-3" />
+          <button
+            onClick={() => {
+              triggerHaptic();
+              setShowConfidenceModal(true);
+            }}
+            title="Tap to learn about AI Confidence Score"
+            className={`pw-tag flex items-center gap-1.5 mb-1 border px-2.5 py-1 rounded-full text-xs font-semibold transition-transform active:scale-95 cursor-pointer shadow-sm ${
+              confidenceColor === 'green' 
+                ? 'text-lime border-lime/30 bg-lime/10 hover:bg-lime/20' 
+                : confidenceColor === 'orange' 
+                  ? 'text-amber border-amber/30 bg-amber/10 hover:bg-amber/20' 
+                  : 'text-rose-400 border-rose-400/30 bg-rose-400/10 hover:bg-rose-400/20'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full animate-pulse ${
+              confidenceColor === 'green' ? 'bg-lime' : confidenceColor === 'orange' ? 'bg-amber' : 'bg-rose-400'
+            }`} />
             <span>{confidencePct}%</span>
-          </div>
-          <span className="text-[10px] text-ink-faint uppercase font-mono">Confidence</span>
+          </button>
+          <span className="text-[10px] text-ink-faint uppercase font-mono cursor-pointer hover:text-ink transition-colors" onClick={() => setShowConfidenceModal(true)}>
+            AI Confidence ⓘ
+          </span>
         </div>
       </motion.div>
 
@@ -320,6 +332,69 @@ export default function ResultScreen() {
           Save Result
         </button>
       </div>
+
+      {/* Confidence Score Explanation Modal */}
+      {showConfidenceModal && (
+        <div className="fixed inset-0 z-50 bg-navy-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm bg-navy-900 border border-surface rounded-2xl p-6 shadow-2xl relative"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold font-mono text-sm ${
+                confidenceColor === 'green' ? 'bg-lime/10 text-lime border border-lime/30' : confidenceColor === 'orange' ? 'bg-amber/10 text-amber border border-amber/30' : 'bg-rose-400/10 text-rose-400 border border-rose-400/30'
+              }`}>
+                {confidencePct}%
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-base text-ink">AI Confidence Score</h3>
+                <p className="text-xs text-ink-faint">Gemini Vision Accuracy Rating</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-ink-dim leading-relaxed mb-5">
+              The AI confidence score measures how precisely PriceSnap's vision model matched visual features, brand logos, tags, and material textures against New Zealand market databases.
+            </p>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-surface/50 border border-surface">
+                <span className="w-2.5 h-2.5 rounded-full bg-lime mt-1 shrink-0" />
+                <div className="text-xs">
+                  <span className="font-semibold text-ink">High Confidence (85% - 100%)</span>
+                  <p className="text-ink-faint mt-0.5">Clear visual identification with high-certainty marketplace comparables.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-surface/50 border border-surface">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber mt-1 shrink-0" />
+                <div className="text-xs">
+                  <span className="font-semibold text-ink">Moderate Confidence (60% - 84%)</span>
+                  <p className="text-ink-faint mt-0.5">Item recognized, but lighting or angle causes slight ambiguity.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-2.5 rounded-xl bg-surface/50 border border-surface">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-400 mt-1 shrink-0" />
+                <div className="text-xs">
+                  <span className="font-semibold text-ink">Low Confidence (&lt;60%)</span>
+                  <p className="text-ink-faint mt-0.5">Obscured or generic item. Manual verification recommended.</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                triggerHaptic();
+                setShowConfidenceModal(false);
+              }}
+              className="w-full py-3 bg-snap hover:bg-snap/90 text-navy-950 font-display font-semibold text-xs rounded-xl transition-all shadow-md"
+            >
+              Got It
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

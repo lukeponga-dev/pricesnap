@@ -11,6 +11,7 @@ import HomeScreen from './screens/HomeScreen';
 import PitchDeckScreen from './screens/PitchDeckScreen';
 import PrivacyScreen from './screens/PrivacyScreen';
 import LandingScreen from './screens/LandingScreen';
+import OrchestrationScreen from './screens/OrchestrationScreen';
 
 const variants = {
   initial: (direction: number) => ({
@@ -49,6 +50,7 @@ function MainFlow() {
             {screen === 'landing' && <LandingScreen />}
             {screen === 'home' && <HomeScreen />}
             {screen === 'scanner' && <ScannerScreen />}
+            {screen === 'orchestration' && <OrchestrationScreen />}
             {screen === 'analyzing' && <AnalyzingScreen />}
             {screen === 'result' && <ResultScreen />}
             {screen === 'history' && <HistoryScreen />}

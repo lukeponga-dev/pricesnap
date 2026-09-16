@@ -1,4 +1,4 @@
-export type Screen = 'landing' | 'home' | 'scanner' | 'analyzing' | 'result' | 'history' | 'settings' | 'pitch' | 'privacy';
+export type Screen = 'landing' | 'home' | 'scanner' | 'analyzing' | 'result' | 'history' | 'settings' | 'pitch' | 'privacy' | 'orchestration';
 
 export interface ProductInfo {
   name: string;
