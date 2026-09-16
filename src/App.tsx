@@ -9,6 +9,7 @@ import HistoryScreen from './screens/HistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import HomeScreen from './screens/HomeScreen';
 import PitchDeckScreen from './screens/PitchDeckScreen';
+import PrivacyScreen from './screens/PrivacyScreen';
 
 const variants = {
   initial: (direction: number) => ({
@@ -51,6 +52,7 @@ function MainFlow() {
             {screen === 'history' && <HistoryScreen />}
             {screen === 'settings' && <SettingsScreen />}
             {screen === 'pitch' && <PitchDeckScreen />}
+            {screen === 'privacy' && <PrivacyScreen />}
           </motion.div>
         </AnimatePresence>
       </div>

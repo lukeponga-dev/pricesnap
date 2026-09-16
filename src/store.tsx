@@ -25,7 +25,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const setScreen = (newScreen: Screen) => {
-    const order: Record<Screen, number> = { home: 1, scanner: 2, history: 3, settings: 4, analyzing: 5, result: 6, pitch: 7 };
+    const order: Record<Screen, number> = { home: 1, scanner: 2, history: 3, settings: 4, analyzing: 5, result: 6, pitch: 7, privacy: 8 };
     setDirection(order[newScreen] > order[screen] ? 1 : -1);
     setScreenState(newScreen);
     triggerHaptic();
