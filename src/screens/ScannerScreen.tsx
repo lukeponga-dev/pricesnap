@@ -109,13 +109,13 @@ export default function ScannerScreen() {
           <input 
             ref={fileInputRef} 
             type="file" 
-            accept="image/*" 
+            accept="image/jpeg,image/png,image/webp"
             className="hidden" 
             onChange={handleFileUpload} 
           />
 
           <p className="text-xs text-ink-faint mt-6 max-w-xs">
-            Or select test samples directly from the home screen dashboard.
+            Use a clear JPEG, PNG or WebP photo showing the whole item and its label.
           </p>
         </div>
       </div>
@@ -177,7 +177,7 @@ export default function ScannerScreen() {
       </div>
       
       <canvas ref={canvasRef} className="hidden" />
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
 
       {/* Controls */}
       <div className="absolute bottom-0 inset-x-0 h-48 bg-gradient-to-t from-black/60 via-black/30 to-transparent pb-20 flex items-center justify-center z-30">

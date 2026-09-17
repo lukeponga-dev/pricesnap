@@ -128,7 +128,7 @@ export default function HomeScreen() {
                 const name = scan.product?.name || anyScan.name || anyScan.item_name || 'Item';
                 const date = scan.date || anyScan.meta?.timestamp || 'Recently';
                 const emoji = anyScan.emoji || '📦';
-                const price = scan.market?.recommended_price ?? anyScan.price?.average ?? anyScan.resale_price_nz ?? 0;
+                const price = scan.market?.recommended_price ?? anyScan.price?.average ?? anyScan.resale_price_nz ?? null;
 
                 return (
                   <div 
@@ -145,7 +145,7 @@ export default function HomeScreen() {
                     </div>
                     <div className="text-right">
                       <span className="font-display font-bold text-sm text-snap">
-                        {formatCurrency(price)}
+                        {price == null ? 'Price unavailable' : formatCurrency(price)}
                       </span>
                     </div>
                   </div>
@@ -165,11 +165,11 @@ export default function HomeScreen() {
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-snap/10 text-snap flex items-center justify-center font-bold border border-snap/20">2</span>
-                <span>Our AI parses visual signatures to map it directly against sold comparables and live listings.</span>
+                <span>Our AI identifies visible details and searches for comparable secondhand listings.</span>
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-snap/10 text-snap flex items-center justify-center font-bold border border-snap/20">3</span>
-                <span>Instantly review dynamic valuation ranges, sold comps, and appraisal confidence.</span>
+                <span>Review available asking prices, source links, and evidence confidence.</span>
               </li>
             </ol>
           </div>

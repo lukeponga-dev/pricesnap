@@ -35,6 +35,9 @@ export const MarketSchema = z.object({
   price_high: z.number().nonnegative().nullable().optional(),
   best_platform: z.string().nullable(),
   grounded: z.boolean(),
+  warnings: z.array(z.string()).optional(),
+  price_basis: z.literal('asking_prices').optional(),
+  search_entry_point: z.string().nullable().optional(),
   confidence: MarketConfidenceSchema.optional(),
   evidence_sources: z.record(z.string(), z.number().int().nonnegative()).optional(),
   sample_listings: z.array(ListingSchema).optional(),
@@ -75,6 +78,7 @@ export const SuccessResponseSchema = AppraisalSchema.extend({
   date: z.string().datetime(),
   appraisal: AppraisalSchema,
   meta: z.object({
+    warnings: z.array(z.string()).optional(),
     timestamp: z.string().datetime(),
     analysis_id: z.string().uuid(),
     request_id: z.string().uuid(),
