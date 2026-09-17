@@ -1,5 +1,6 @@
 import type { ListingComparable } from './schema';
 import { calculateResellerValuation, robustMarketStats } from './valuation';
+import { retrieveGoogleComparables } from './search';
 
 async function ebayToken(): Promise<string | null> {
   const clientId = process.env.EBAY_CLIENT_ID;
@@ -19,8 +20,7 @@ async function ebayToken(): Promise<string | null> {
 
 function conversionToNzd(currency: string): number | null {
   if (currency === 'NZD') return 1;
-  const key = `${currency}_NZD_RATE`;
-  const configured = Number(process.env[key]);
+  const configured = Number(process.env[`${currency}_NZD_RATE`]);
   return Number.isFinite(configured) && configured > 0 ? configured : null;
 }
 
@@ -32,8 +32,7 @@ function relevant(query: string, title: string) {
   const words = normalizedWords(query);
   const haystack = title.toLowerCase();
   if (!words.length) return true;
-  const matches = words.filter(word => haystack.includes(word)).length;
-  return matches / words.length >= 0.5;
+  return words.filter(word => haystack.includes(word)).length / words.length >= 0.5;
 }
 
 export async function retrieveEbayComparables(query: string): Promise<ListingComparable[]> {
@@ -53,42 +52,60 @@ export async function retrieveEbayComparables(query: string): Promise<ListingCom
     const value = Number(item?.price?.value);
     const title = typeof item?.title === 'string' ? item.title : '';
     if (!Number.isFinite(value) || value <= 0 || !item?.itemWebUrl || !title || !relevant(query, title)) return [];
-    const currency = String(item?.price?.currency || '').toUpperCase();
-    const conversion = conversionToNzd(currency);
+    const conversion = conversionToNzd(String(item?.price?.currency || '').toUpperCase());
     if (conversion === null) return [];
-    return [{
-      source: 'ebay' as const,
-      title,
-      url: String(item.itemWebUrl),
-      priceNzd: Math.round(value * conversion * 100) / 100,
-      condition: item.condition ? String(item.condition) : null,
-      retrievedAt: new Date().toISOString(),
-    }];
+    return [{ source: 'ebay' as const, title, url: String(item.itemWebUrl), priceNzd: Math.round(value * conversion * 100) / 100, condition: item.condition ? String(item.condition) : null, retrievedAt: new Date().toISOString() }];
+  });
+}
+
+function dedupe(listings: ListingComparable[]) {
+  const seen = new Set<string>();
+  return listings.filter(item => {
+    const key = `${item.source}:${item.url}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
 
 export async function groundMarket(itemName: string) {
   const started = Date.now();
   const warnings: string[] = [];
-  let ebayListings: ListingComparable[] = [];
-  try { ebayListings = await retrieveEbayComparables(itemName); }
-  catch (error: any) { warnings.push(error?.message || 'eBay grounding failed'); }
+  const results = await Promise.allSettled([
+    retrieveGoogleComparables(itemName, 'trademe'),
+    retrieveGoogleComparables(itemName, 'facebook'),
+    retrieveEbayComparables(itemName),
+  ]);
 
+  const names = ['Trade Me indexed search', 'Facebook Marketplace indexed search', 'eBay'] as const;
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') warnings.push(`${names[index]}: ${result.reason?.message || String(result.reason)}`);
+  });
+
+  const trademeListings = dedupe(results[0].status === 'fulfilled' ? results[0].value : []);
+  const facebookListings = dedupe(results[1].status === 'fulfilled' ? results[1].value : []);
+  const ebayListings = dedupe(results[2].status === 'fulfilled' ? results[2].value : []);
+
+  const trademe = robustMarketStats(trademeListings);
+  const facebook = robustMarketStats(facebookListings);
   const ebay = robustMarketStats(ebayListings);
-  const valuation = calculateResellerValuation([ebay]);
+  const valuation = calculateResellerValuation([trademe, facebook, ebay]);
 
-  // Trade Me Marketplace data is intentionally not scraped or aggregated. Its current API rules
-  // generally exclude casual-seller price monitoring/comparison tools and combining its data with
-  // other marketplace listings unless Trade Me grants an approved purpose/variation.
-  // Facebook Marketplace likewise has no supported public listings-search API for this workflow.
+  const platforms = [
+    { name: 'Trade Me', market: trademe },
+    { name: 'Facebook Marketplace', market: facebook },
+    { name: 'eBay', market: ebay },
+  ].filter(x => x.market?.median != null);
+  platforms.sort((a, b) => (b.market?.evidence_count || 0) - (a.market?.evidence_count || 0));
+
   return {
     market: {
-      trademe: null,
-      facebook: null,
+      trademe,
+      facebook,
       ebay,
       trend: null,
       recommended_price: valuation.recommendedPrice,
-      best_platform: ebay ? 'eBay' : null,
+      best_platform: platforms[0]?.name ?? null,
       grounded: valuation.evidenceCount > 0,
     },
     durationMs: Date.now() - started,
