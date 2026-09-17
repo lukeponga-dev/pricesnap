@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 export const ListingSchema = z.object({
-  source: z.enum(['ebay', 'trademe', 'facebook', 'other', 'google_search']),
+  source: z.string().min(1),
   title: z.string(),
   url: z.string().url(),
-  priceNzd: z.number().nonnegative(),
+  priceNzd: z.number().positive(),
   condition: z.string().nullable().default(null),
   retrievedAt: z.string().datetime(),
 });
@@ -17,14 +17,28 @@ export const PlatformMarketSchema = z.object({
   evidence_count: z.number().int().nonnegative(),
 });
 
+export const MarketConfidenceSchema = z.object({
+  score: z.number().min(0).max(1),
+  label: z.enum(['none', 'low', 'medium', 'high']),
+  evidence_count: z.number().int().nonnegative(),
+  source_count: z.number().int().nonnegative(),
+  price_spread: z.number().nonnegative().nullable(),
+});
+
 export const MarketSchema = z.object({
   trademe: PlatformMarketSchema.nullable(),
   facebook: PlatformMarketSchema.nullable(),
   ebay: PlatformMarketSchema.nullable(),
   trend: z.enum(['rising', 'stable', 'falling']).nullable(),
   recommended_price: z.number().nonnegative().nullable(),
+  price_low: z.number().nonnegative().nullable().optional(),
+  price_high: z.number().nonnegative().nullable().optional(),
   best_platform: z.string().nullable(),
   grounded: z.boolean(),
+  confidence: MarketConfidenceSchema.optional(),
+  evidence_sources: z.record(z.string(), z.number().int().nonnegative()).optional(),
+  sample_listings: z.array(ListingSchema).optional(),
+  rejected_evidence_count: z.number().int().nonnegative().optional(),
 });
 
 export const ProductSchema = z.object({
@@ -72,12 +86,7 @@ export const SuccessResponseSchema = AppraisalSchema.extend({
 
 export const ErrorResponseSchema = z.object({
   ok: z.literal(false),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    request_id: z.string().uuid(),
-    details: z.unknown().optional(),
-  }),
+  error: z.object({ code: z.string(), message: z.string(), request_id: z.string().uuid(), details: z.unknown().optional() }),
   meta: z.object({ duration_ms: z.number().int().nonnegative() }),
 });
 
