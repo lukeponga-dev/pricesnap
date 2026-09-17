@@ -48,15 +48,23 @@ async function getGeminiGroundedListings(query:string, conditionScore:number|nul
   const apiKey=process.env.GOOGLE_AI_STUDIO_API_KEY||process.env.GEMINI_API_KEY; if(!apiKey)return [];
   try {
     const { GoogleGenAI }=await import('@google/genai'); const ai=new GoogleGenAI({apiKey});
-    const prompt=`Find current second-hand/resale listings for "${query}" relevant to a New Zealand buyer. Search multiple public sources, prioritising Trade Me, eBay, Cash Converters NZ, Facebook Marketplace pages visible to search, retailer used/refurbished pages, auction/classified sites and other reputable resale sources. Condition score: ${conditionScore ?? 'unknown'}/10. Defects: ${defects.join(', ')||'none known'}. Return ONLY a JSON array with up to 12 evidence records: [{"title":"...","url":"https://...","priceNzd":123,"source":"domain"}]. Only include a price when supported by a search result/page. Convert clearly stated foreign prices to approximate NZD when necessary. Never invent URLs or prices.`;
+    const prompt=`Find current second-hand/resale listings for "${query}" relevant to a New Zealand buyer.
+
+IMPORTANT: explicitly search for similar Facebook Marketplace listings using queries equivalent to site:facebook.com/marketplace "${query}" New Zealand, and include Facebook Marketplace evidence whenever Google Search can see a public/indexed listing. Do not attempt to bypass login, privacy controls, robots restrictions, or other access controls.
+
+Also search multiple other public sources, including Trade Me, eBay, Cash Converters NZ, retailer used/refurbished pages, auction/classified sites and other reputable resale sources.
+
+Condition score: ${conditionScore ?? 'unknown'}/10. Defects: ${defects.join(', ')||'none known'}.
+Return ONLY a JSON array with up to 16 evidence records: [{"title":"...","url":"https://...","priceNzd":123,"source":"domain"}]. Prefer New Zealand listings and NZD. Only include a price when supported by the search result/page. Convert clearly stated foreign prices to approximate NZD when necessary. Never invent URLs or prices. For Facebook evidence, the URL must point to facebook.com and the result must expose a usable asking price.`;
     const res:any=await ai.models.generateContent({model:'gemini-3.6-flash',contents:prompt,config:{tools:[{googleSearch:{}}]}});
     const raw=(res.text||'').replace(/```(?:json)?/gi,'').replace(/```/g,'').trim(); const a=raw.indexOf('['),b=raw.lastIndexOf(']'); if(a<0||b<a)return [];
     const data=JSON.parse(raw.slice(a,b+1)); if(!Array.isArray(data))return [];
-    return data.slice(0,12).map((x:any)=>({source:`gemini_search:${String(x.source||'web').slice(0,80)}`,title:String(x.title||'Grounded listing').slice(0,200),url:String(x.url||''),priceNzd:Number(x.priceNzd),condition:null,retrievedAt:new Date().toISOString()})).filter((x:ListingComparable)=>/^https?:\/\//.test(x.url)&&sensiblePrice(x.priceNzd));
+    return data.slice(0,16).map((x:any)=>({source:`gemini_search:${String(x.source||'web').slice(0,80)}`,title:String(x.title||'Grounded listing').slice(0,200),url:String(x.url||''),priceNzd:Number(x.priceNzd),condition:null,retrievedAt:new Date().toISOString()})).filter((x:ListingComparable)=>/^https?:\/\//.test(x.url)&&sensiblePrice(x.priceNzd));
   } catch(e:any) { warnings.push(`Gemini Google Search grounding unavailable: ${e?.message||String(e)}`); return []; }
 }
 
 function hostOf(url:string){try{return new URL(url).hostname.replace(/^www\./,'');}catch{return 'unknown';}}
+function isFacebook(url:string){const h=hostOf(url).toLowerCase();return h==='facebook.com'||h.endsWith('.facebook.com');}
 function dedupe(listings:ListingComparable[]){const seen=new Set<string>();return listings.filter(x=>{const k=`${x.url}|${Math.round(x.priceNzd)}`;if(seen.has(k))return false;seen.add(k);return true;});}
 function confidence(listings:ListingComparable[]){
   if(!listings.length)return {score:0,label:'none',evidence_count:0,source_count:0,price_spread:null};
@@ -69,8 +77,12 @@ export async function groundMarket(itemName:string,conditionScore:number|null=nu
   const started=Date.now(); const warnings:string[]=[]; const query=itemName.trim().slice(0,120);
   const [publicResult,grounded]=await Promise.all([getPublicListings(query),getGeminiGroundedListings(query,conditionScore,defects,warnings)]);
   if(!publicResult.trademe.length)warnings.push('Trade Me public search returned no directly parsed pricing evidence.'); if(!publicResult.ebay.length)warnings.push('eBay public search returned no directly parsed pricing evidence.');
+
+  const facebookListings=grounded.filter(x=>isFacebook(x.url));
+  if(!facebookListings.length)warnings.push('No publicly indexed Facebook Marketplace pricing evidence was visible to Google Search grounding.');
+
   const all=dedupe([...publicResult.trademe,...publicResult.ebay,...grounded]); const combined=robustMarketStats(all); const valuation=calculateResellerValuation([combined]); let recommendedPrice=valuation.recommendedPrice;
   if(recommendedPrice!==null&&conditionScore!==null){const conditionFactor=.75+(Math.max(1,Math.min(10,conditionScore))/10)*.25;const defectFactor=Math.max(.7,1-Math.min(defects.length,3)*.05);recommendedPrice=Math.round(recommendedPrice*conditionFactor*defectFactor*100)/100;}
   const conf=confidence(combined?.sample_listings||all); const sourceCounts=all.reduce<Record<string,number>>((acc,x)=>{const h=hostOf(x.url);acc[h]=(acc[h]||0)+1;return acc;},{});
-  return {market:{trademe:robustMarketStats(publicResult.trademe),facebook:null,ebay:robustMarketStats(publicResult.ebay),trend:null,recommended_price:recommendedPrice,best_platform:Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||null,grounded:valuation.evidenceCount>0,confidence:conf,evidence_sources:sourceCounts,sample_listings:combined?.sample_listings||[]},durationMs:Date.now()-started,warnings};
+  return {market:{trademe:robustMarketStats(publicResult.trademe),facebook:robustMarketStats(facebookListings),ebay:robustMarketStats(publicResult.ebay),trend:null,recommended_price:recommendedPrice,best_platform:Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||null,grounded:valuation.evidenceCount>0,confidence:conf,evidence_sources:sourceCounts,sample_listings:combined?.sample_listings||[]},durationMs:Date.now()-started,warnings};
 }
