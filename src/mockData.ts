@@ -14,28 +14,28 @@ export function generateMockResult(): ScanResult {
 
   const randomItem = items[Math.floor(Math.random() * items.length)];
   const avg = randomItem.avg;
+  const requestId = crypto.randomUUID();
 
   return {
-    id: Math.random().toString(36).substring(2, 9),
+    status: 'identified',
+    id: requestId,
     date: new Date().toISOString(),
-    isMock: true,
+    item: randomItem.name,
     item_category: randomItem.category,
     item_name: randomItem.name,
     brand: randomItem.brand,
+    conditionScore: randomItem.score,
     condition_score: randomItem.score,
     defects: randomItem.defects,
     resale_price_nz: avg,
     confidence: 0.95,
     product: {
       name: randomItem.name,
-      item_name: randomItem.name,
       brand: randomItem.brand,
       category: randomItem.category,
-      item_category: randomItem.category,
       condition_score: randomItem.score,
-      condition_grade: randomItem.score >= 9 ? "A" : randomItem.score >= 7 ? "B" : "C",
+      condition_grade: randomItem.score >= 9 ? "Mint" : randomItem.score >= 7 ? "Great" : "Good",
       defects: randomItem.defects,
-      issues: randomItem.defects,
       resale_price_nz: avg,
       confidence: 0.95,
       confidence_color: "green",
@@ -43,40 +43,28 @@ export function generateMockResult(): ScanResult {
         ? `Condition score: ${randomItem.score}/10. Issues: ${randomItem.defects.join(", ")}` 
         : `Mint condition (${randomItem.score}/10). No defects identified.`
     },
-    condition: {
-      score: randomItem.score,
-      grade: randomItem.score >= 9 ? "A" : randomItem.score >= 7 ? "B" : "C",
-      issues: randomItem.defects,
-      summary: randomItem.defects.length > 0 
-        ? `Condition score: ${randomItem.score}/10. Issues: ${randomItem.defects.join(", ")}` 
-        : `Mint condition (${randomItem.score}/10). No defects identified.`
-    },
     market: {
-      trademe: {
+      trademe: null,
+      facebook: null,
+      ebay: {
         low: randomItem.low,
         median: avg,
         high: randomItem.high,
-        sample_listings: []
-      },
-      facebook: {
-        low: Math.round(avg * 0.82),
-        median: Math.round(avg * 0.94),
-        high: Math.round(avg * 1.05),
-        sample_listings: []
-      },
-      ebay: {
-        low: Math.round(avg * 0.9),
-        median: Math.round(avg * 1.08),
-        high: Math.round(avg * 1.25),
-        sample_listings: []
+        sample_listings: [],
+        evidence_count: 1
       },
       trend: "stable",
       recommended_price: avg,
-      best_platform: "Trade Me"
+      best_platform: "eBay",
+      grounded: true
     },
     meta: {
       timestamp: new Date().toISOString(),
-      analysis_id: Math.random().toString(36).substring(2, 9)
+      analysis_id: requestId,
+      request_id: requestId,
+      model: "mock-model",
+      duration_ms: 120,
+      grounding_duration_ms: 50
     }
   };
 }

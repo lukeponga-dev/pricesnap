@@ -1,4 +1,4 @@
-export type Screen = 'landing'|'home'|'scanner'|'analyzing'|'result'|'history'|'settings'|'pitch'|'privacy'|'orchestration';
+export type Screen = 'landing'|'home'|'scanner'|'analyzing'|'result'|'history'|'settings'|'pitch'|'privacy';
 export type AnalysisState = 'idle'|'uploading'|'identifying'|'grounding'|'complete'|'error';
 export interface ComparableListing { source:'ebay'|'trademe'|'facebook'|'other'; title:string; url:string; priceNzd:number; condition:string|null; retrievedAt:string; }
 export interface MarketPlatformData { low:number|null; median:number|null; high:number|null; sample_listings:ComparableListing[]; evidence_count:number; }

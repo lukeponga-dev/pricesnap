@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { useAppState } from '../store';
-import { Camera, Sparkles, ClipboardList, BookOpen, TrendingUp, ChevronRight, Cpu } from 'lucide-react';
+import { Camera, Sparkles, ClipboardList, BookOpen, TrendingUp, ChevronRight } from 'lucide-react';
 import { formatCurrency } from '../utils';
 
 export default function HomeScreen() {
@@ -65,26 +65,6 @@ export default function HomeScreen() {
               <span className="text-[8px] uppercase tracking-widest font-mono text-snap bg-snap/10 px-1.5 py-0.2 rounded border border-snap/20">LIVE</span>
             </div>
             <p className="text-xs text-ink-dim leading-snug">See our business model, market opportunity & traction metrics.</p>
-          </div>
-          
-          <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-snap group-hover:translate-x-0.5 transition-all shrink-0" />
-        </div>
-
-        {/* AI Orchestration Hub Card */}
-        <div 
-          onClick={() => setScreen('orchestration')}
-          className="pw-card relative overflow-hidden p-4 flex items-center gap-4 border border-surface bg-navy-900/60 hover:bg-navy-900 transition-all cursor-pointer group hover:border-snap/40 active:scale-[0.99] mt-3"
-        >
-          <div className="w-10 h-10 rounded-xl bg-snap/10 text-snap flex items-center justify-center border border-snap/20 group-hover:scale-105 transition-transform shrink-0">
-            <Cpu className="w-5 h-5" />
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <h3 className="font-display font-semibold text-sm text-ink group-hover:text-snap transition-colors">AI Orchestration Hub</h3>
-              <span className="text-[8px] uppercase tracking-widest font-mono text-lime bg-lime/10 px-1.5 py-0.2 rounded border border-lime/20">BATCH</span>
-            </div>
-            <p className="text-xs text-ink-dim leading-snug">Orchestrate multi-item batch valuations & pipeline steps.</p>
           </div>
           
           <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-snap group-hover:translate-x-0.5 transition-all shrink-0" />
