@@ -1,4 +1,5 @@
-import React,{createContext,useContext,useEffect,useState}from'react';
+import React,{createContext,useContext,useEffect,useRef,useState}from'react';
+import { prepareImage, readAnalysisResponse } from './lib/analysis-client';
 import{AnalysisState,ScanResult,Screen}from'./types';import{triggerHaptic}from'./utils';
 
 interface Ctx{
@@ -18,6 +19,8 @@ const Context=createContext<Ctx|undefined>(undefined);
 const KEY='pricesnap.history.v1';
 
 export function AppStateProvider({children}:{children:React.ReactNode}){
+  const activeScan = useRef<AbortController | null>(null);
+  useEffect(() => () => activeScan.current?.abort(), []);
   const[screen,setScreenState]=useState<Screen>('landing');
   const[direction,setDirection]=useState(1);
   const[history,setHistory]=useState<ScanResult[]>(()=>{
@@ -32,6 +35,7 @@ export function AppStateProvider({children}:{children:React.ReactNode}){
   },[history]);
 
   const setScreen=(n:Screen)=>{
+    if (n !== 'analyzing' && n !== 'result') { activeScan.current?.abort(); activeScan.current = null; }
     const o:Record<Screen,number>={landing:0,home:1,scanner:2,history:3,settings:4,analyzing:5,result:6,pitch:7,privacy:8};
     setDirection(o[n]>o[screen]?1:-1);
     setScreenState(n);
@@ -41,7 +45,7 @@ export function AppStateProvider({children}:{children:React.ReactNode}){
   const showToast=(m:string)=>{
     triggerHaptic();
     setToastMessage(m);
-    setTimeout(()=>setToastMessage(null),3000);
+    setTimeout(()=>setToastMessage(null),8000);
   };
 
   const startScan=async(imageBase64:string)=>{
@@ -49,35 +53,32 @@ export function AppStateProvider({children}:{children:React.ReactNode}){
     setCurrentScan(null);
     setAnalysisState('uploading');
     setScreen('analyzing');
-    try{
-      setAnalysisState('identifying');
-      const response=await fetch('/api/analyze',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({imageBase64})
+    activeScan.current?.abort();
+    const controller = new AbortController();
+    activeScan.current = controller;
+    const timer = setTimeout(() => controller.abort(new DOMException('Analysis timed out. Please try again.', 'TimeoutError')), 100000);
+    try {
+      const prepared = await prepareImage(imageBase64);
+      if (controller.signal.aborted) return;
+      const response = await fetch('/api/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+        body: JSON.stringify({ imageBase64: prepared }), signal: controller.signal,
       });
-
-      setAnalysisState('grounding');
-      const text=await response.text();
-      let data:any;
-      try{
-        data=JSON.parse(text);
-      }catch{
-        throw new Error(`Analysis service returned an invalid response (${response.status}).`);
-      }
-
-      if(!response.ok || data?.ok===false){
-        throw new Error(data?.error?.message||`Analysis failed (${response.status})`);
-      }
-
-      setCurrentScan(data as ScanResult);
+      const data = await readAnalysisResponse(response, stage => {
+        if (activeScan.current === controller) setAnalysisState(stage);
+      });
+      if (activeScan.current !== controller) return;
+      setCurrentScan(data);
       setAnalysisState('complete');
       setScreen('result');
-    }catch(e:any){
-      console.error('Analysis failed:',e?.message||e);
+    } catch (error: any) {
+      if (activeScan.current !== controller) return;
       setAnalysisState('error');
       setScreen('scanner');
-      showToast(e?.message||'Unable to analyze this image. Please try again.');
+      showToast(controller.signal.reason?.name === 'TimeoutError' ? 'Analysis timed out. Please try again.' : error?.message || 'Unable to analyze this image. Please try again.');
+    } finally {
+      clearTimeout(timer);
+      if (activeScan.current === controller) activeScan.current = null;
     }
   };
 
