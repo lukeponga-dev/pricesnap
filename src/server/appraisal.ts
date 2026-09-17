@@ -5,7 +5,7 @@ import { generateMockResult } from '../mockData';
 
 export class AppraisalError extends Error { constructor(message: string, public code: string, public statusCode: number, public details?: unknown) { super(message); this.name = 'AppraisalError'; } }
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
-export const GEMINI_MODEL = 'models/gemini-3.6-flash';
+export const GEMINI_MODEL = 'models/gemini-3.5-flash';
 const PROMPT = `You are PriceSnap Vision. Return ONLY JSON: {"item":string|null,"item_category":string|null,"item_name":string|null,"brand":string|null,"condition_score":number|null,"defects":string[],"confidence":number|null}. Confidence is 0..1. Never invent identity, condition, confidence or price. Do not estimate marketplace prices. Use null identity fields when uncertain.`;
 
 export function parseImageInput(body: unknown) {
