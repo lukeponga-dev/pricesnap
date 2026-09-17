@@ -1,7 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { AppraisalSchema, SuccessResponseSchema } from './schema';
 import { groundMarket } from './market';
-import { generateMockResult } from '../mockData';
 
 export class AppraisalError extends Error { constructor(message: string, public code: string, public statusCode: number, public details?: unknown) { super(message); this.name = 'AppraisalError'; } }
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -22,69 +21,42 @@ export function parseImageInput(body: unknown) {
   return { mimeType, base64Data };
 }
 
-export function sanitizeAndParseJson(raw: string): any { 
-  if (!raw) throw new AppraisalError('Empty response from appraisal model.', 'EMPTY_MODEL_RESPONSE', 502); 
-  const clean = raw.replace(/<think>[\s\S]*?<\/think>/gi,'').replace(/```(?:json)?/gi,'').replace(/```/g,'').trim(); 
-  const a = clean.indexOf('{'), b = clean.lastIndexOf('}'); 
-  if (a < 0 || b < a) throw new AppraisalError('Model response did not contain JSON.', 'INVALID_MODEL_JSON', 502); 
-  try { 
-    return JSON.parse(clean.slice(a, b + 1)); 
-  } catch { 
-    throw new AppraisalError('Model returned malformed JSON.', 'INVALID_MODEL_JSON', 502); 
-  } 
+export function sanitizeAndParseJson(raw: string): any {
+  if (!raw) throw new AppraisalError('Empty response from appraisal model.', 'EMPTY_MODEL_RESPONSE', 502);
+  const clean = raw.replace(/<think>[\s\S]*?<\/think>/gi,'').replace(/```(?:json)?/gi,'').replace(/```/g,'').trim();
+  const a = clean.indexOf('{'), b = clean.lastIndexOf('}');
+  if (a < 0 || b < a) throw new AppraisalError('Model response did not contain JSON.', 'INVALID_MODEL_JSON', 502);
+  try { return JSON.parse(clean.slice(a, b + 1)); }
+  catch { throw new AppraisalError('Model returned malformed JSON.', 'INVALID_MODEL_JSON', 502); }
 }
 
 const num = (v: unknown) => v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null;
-
-export function normalizeVision(data: any) { 
-  let confidence = num(data?.confidence); 
-  if (confidence !== null && confidence > 1 && confidence <= 100) confidence /= 100; 
-  confidence = confidence === null ? null : Math.max(0, Math.min(1, confidence)); 
-  const raw = data?.item ?? data?.item_name ?? null; 
-  const unidentified = typeof raw !== 'string' || !raw.trim() || (confidence !== null && confidence < 0.3); 
-  const s = num(data?.condition_score); 
-  const score = s === null ? null : Math.max(1, Math.min(10, s)); 
-  const defects = Array.isArray(data?.defects) ? data.defects.filter((x: unknown): x is string => typeof x === 'string') : []; 
-  return unidentified 
-    ? { status: 'unidentified' as const, name: null, category: null, brand: null, score: null, defects: [], confidence } 
-    : { status: 'identified' as const, name: raw.trim(), category: typeof data?.item_category === 'string' ? data.item_category : null, brand: typeof data?.brand === 'string' ? data.brand : null, score, defects, confidence }; 
+export function normalizeVision(data: any) {
+  let confidence = num(data?.confidence);
+  if (confidence !== null && confidence > 1 && confidence <= 100) confidence /= 100;
+  confidence = confidence === null ? null : Math.max(0, Math.min(1, confidence));
+  const raw = data?.item ?? data?.item_name ?? null;
+  const unidentified = typeof raw !== 'string' || !raw.trim() || (confidence !== null && confidence < 0.3);
+  const s = num(data?.condition_score);
+  const score = s === null ? null : Math.max(1, Math.min(10, s));
+  const defects = Array.isArray(data?.defects) ? data.defects.filter((x: unknown): x is string => typeof x === 'string') : [];
+  return unidentified ? { status: 'unidentified' as const, name: null, category: null, brand: null, score: null, defects: [], confidence } : { status: 'identified' as const, name: raw.trim(), category: typeof data?.item_category === 'string' ? data.item_category : null, brand: typeof data?.brand === 'string' ? data.brand : null, score, defects, confidence };
 }
-
 const grade = (s: number | null) => s === null ? null : s >= 9 ? 'Mint' : s >= 7 ? 'Great' : s >= 5 ? 'Good' : 'Fair';
 
-export async function analyzeAppraisal(body: unknown, requestId = crypto.randomUUID()) { 
-  const started = Date.now(); 
-  const { base64Data, mimeType } = parseImageInput(body); 
-  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY; 
-  
+export async function analyzeAppraisal(body: unknown, requestId = crypto.randomUUID()) {
+  const started = Date.now();
+  const { base64Data, mimeType } = parseImageInput(body);
+  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new AppraisalError('AI service is not configured.', 'AI_NOT_CONFIGURED', 503);
+
   let responseText = '';
-  let modelUsed = GEMINI_MODEL;
-
-  if (!apiKey) {
-    // If no API key configured, gracefully fallback to mock appraisal for demo/testing
-    const mock = generateMockResult();
-    const timestamp = new Date().toISOString();
-    return SuccessResponseSchema.parse({
-      ok: true,
-      ...mock,
-      appraisal: mock,
-      id: requestId,
-      date: timestamp,
-      meta: { timestamp, request_id: requestId, analysis_id: requestId, duration_ms: Date.now() - started, model: modelUsed, grounding_duration_ms: 0 }
-    });
-  }
-
   try {
     const ai = new GoogleGenAI({ apiKey });
     let lastError: any = null;
-    
-    // Try up to 2 attempts for 503 / transient overload
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const res = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: [{ role: 'user', parts: [{ inlineData: { data: base64Data, mimeType } }, { text: PROMPT }] }]
-        });
+        const res = await ai.models.generateContent({ model: GEMINI_MODEL, contents: [{ role: 'user', parts: [{ inlineData: { data: base64Data, mimeType } }, { text: PROMPT }] }] });
         responseText = res.text || '';
         if (responseText) break;
       } catch (err: any) {
@@ -93,82 +65,21 @@ export async function analyzeAppraisal(body: unknown, requestId = crypto.randomU
         await new Promise(r => setTimeout(r, 1000));
       }
     }
-    if (!responseText && lastError) {
-      throw lastError;
-    }
+    if (!responseText && lastError) throw lastError;
   } catch (e: any) {
-    console.warn("Gemini model call failed or overloaded, falling back to robust mock appraisal:", e?.message || e);
-    // Graceful fallback on 503 / model overload so the user experience never breaks
-    const mock = generateMockResult();
-    const timestamp = new Date().toISOString();
-    return SuccessResponseSchema.parse({
-      ok: true,
-      ...mock,
-      appraisal: mock,
-      id: requestId,
-      date: timestamp,
-      meta: { timestamp, request_id: requestId, analysis_id: requestId, duration_ms: Date.now() - started, model: modelUsed, grounding_duration_ms: 0 }
-    });
+    console.error('Gemini appraisal failed:', e?.message || e);
+    throw new AppraisalError('AI appraisal service is temporarily unavailable. Please try again.', 'AI_SERVICE_UNAVAILABLE', 503);
   }
 
-  const vision = normalizeVision(sanitizeAndParseJson(responseText)); 
-  const grounding = vision.status === 'identified' && vision.name ? await groundMarket(vision.name, vision.score, vision.defects) : { market: null, durationMs: 0, warnings: [] }; 
-  const price = grounding.market?.recommended_price ?? null; 
-  
-  const appraisal = AppraisalSchema.parse({
-    status: vision.status,
-    item: vision.name,
-    item_category: vision.category,
-    item_name: vision.name,
-    brand: vision.brand,
-    conditionScore: vision.score,
-    condition_score: vision.score,
-    defects: vision.defects,
-    resale_price_nz: price,
-    confidence: vision.confidence,
-    market: grounding.market,
-    product: {
-      name: vision.name,
-      brand: vision.brand,
-      category: vision.category,
-      condition_score: vision.score,
-      condition_grade: grade(vision.score),
-      defects: vision.defects,
-      resale_price_nz: price,
-      confidence: vision.confidence,
-      confidence_color: vision.confidence !== null && vision.confidence >= 0.85 ? 'green' : vision.confidence !== null && vision.confidence >= 0.6 ? 'orange' : 'red',
-      summary: vision.status === 'identified' 
-        ? (grounding.market?.grounded ? 'AI identification with price derived from retrieved marketplace evidence.' : 'AI identification complete. No marketplace evidence was available, so no price was invented.') 
-        : 'Item could not be identified reliably. Try a clearer photo.'
-    }
-  }); 
-
-  const timestamp = new Date().toISOString(); 
-  return SuccessResponseSchema.parse({
-    ok: true,
-    id: requestId,
-    date: timestamp,
-    ...appraisal,
-    appraisal,
-    meta: {
-      timestamp,
-      analysis_id: requestId,
-      request_id: requestId,
-      model: modelUsed,
-      duration_ms: Date.now() - started,
-      grounding_duration_ms: grounding.durationMs
-    }
-  }); 
+  const vision = normalizeVision(sanitizeAndParseJson(responseText));
+  const grounding = vision.status === 'identified' && vision.name ? await groundMarket(vision.name, vision.score, vision.defects) : { market: null, durationMs: 0, warnings: [] };
+  const price = grounding.market?.recommended_price ?? null;
+  const appraisal = AppraisalSchema.parse({ status: vision.status, item: vision.name, item_category: vision.category, item_name: vision.name, brand: vision.brand, conditionScore: vision.score, condition_score: vision.score, defects: vision.defects, resale_price_nz: price, confidence: vision.confidence, market: grounding.market, product: { name: vision.name, brand: vision.brand, category: vision.category, condition_score: vision.score, condition_grade: grade(vision.score), defects: vision.defects, resale_price_nz: price, confidence: vision.confidence, confidence_color: vision.confidence !== null && vision.confidence >= 0.85 ? 'green' : vision.confidence !== null && vision.confidence >= 0.6 ? 'orange' : 'red', summary: vision.status === 'identified' ? (grounding.market?.grounded ? 'AI identification with price derived from retrieved marketplace evidence.' : 'AI identification complete. No marketplace evidence was available, so no price was invented.') : 'Item could not be identified reliably. Try a clearer photo.' } });
+  const timestamp = new Date().toISOString();
+  return SuccessResponseSchema.parse({ ok: true, id: requestId, date: timestamp, ...appraisal, appraisal, meta: { timestamp, analysis_id: requestId, request_id: requestId, model: GEMINI_MODEL, duration_ms: Date.now() - started, grounding_duration_ms: grounding.durationMs } });
 }
 
 export function appraisalErrorResponse(error: unknown, requestId = crypto.randomUUID(), started = Date.now()) {
   const err = error instanceof AppraisalError ? error : new AppraisalError('An unexpected appraisal error occurred.', 'INTERNAL_SERVER_ERROR', 500);
-  return {
-    status: err.statusCode,
-    body: {
-      ok: false as const,
-      error: { code: err.code, message: err.message, request_id: requestId, details: err.details },
-      meta: { duration_ms: Date.now() - started }
-    }
-  };
+  return { status: err.statusCode, body: { ok: false as const, error: { code: err.code, message: err.message, request_id: requestId, details: err.details }, meta: { duration_ms: Date.now() - started } } };
 }
