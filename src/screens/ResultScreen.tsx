@@ -38,16 +38,16 @@ export default function ResultScreen() {
     summary: anyScan.summary || 'Appraisal complete'
   };
 
-  const conditionGrade = product.condition_grade || currentScan.condition?.grade || anyScan.condition_grade || 'A';
-  const conditionScore = product.condition_score ?? currentScan.condition?.score ?? anyScan.condition_score ?? (conditionGrade === 'A' ? 9 : conditionGrade === 'B' ? 7 : 5);
+  const conditionGrade = product.condition_grade || (anyScan as any).condition?.grade || anyScan.condition_grade || 'A';
+  const conditionScore = product.condition_score ?? (anyScan as any).condition?.score ?? anyScan.condition_score ?? (conditionGrade === 'A' ? 9 : conditionGrade === 'B' ? 7 : 5);
   
   const conditionIssues = Array.isArray(product.defects) && product.defects.length > 0
     ? product.defects
-    : Array.isArray(product.issues) && product.issues.length > 0 
-      ? product.issues 
-      : (Array.isArray(currentScan.condition?.issues) ? currentScan.condition.issues : []);
+    : Array.isArray((product as any).issues) && (product as any).issues.length > 0 
+      ? (product as any).issues 
+      : (Array.isArray((currentScan as any).condition?.issues) ? (currentScan as any).condition.issues : []);
 
-  const conditionSummary = product.summary || currentScan.condition?.summary || `Assessed condition score: ${conditionScore}/10 (Grade ${conditionGrade})`;
+  const conditionSummary = product.summary || (currentScan as any).condition?.summary || `Assessed condition score: ${conditionScore}/10 (Grade ${conditionGrade})`;
 
   let confidenceNum = Number(product.confidence ?? 0.95);
   if (confidenceNum > 1 && confidenceNum <= 100) confidenceNum = confidenceNum / 100;
@@ -56,7 +56,7 @@ export default function ResultScreen() {
   const confidencePct = Math.round(confidenceNum * 100);
   const confidenceColor = product.confidence_color || (confidenceNum >= 0.85 ? 'green' : confidenceNum >= 0.6 ? 'orange' : 'red');
 
-  const rawMarket = currentScan.market || {};
+  const rawMarket = (currentScan.market as any) || {};
   const recPrice = Number(
     rawMarket.recommended_price || 
     anyScan.price?.average || 
@@ -64,24 +64,10 @@ export default function ResultScreen() {
     120
   );
 
-  const trademeData = {
-    low: Number(rawMarket?.trademe?.low ?? (anyScan?.price?.low ?? Math.round(recPrice * 0.85))),
-    median: Number(rawMarket?.trademe?.median ?? (anyScan?.price?.average ?? recPrice)),
-    high: Number(rawMarket?.trademe?.high ?? (anyScan?.price?.high ?? Math.round(recPrice * 1.15))),
-    sample_listings: Array.isArray(rawMarket?.trademe?.sample_listings) ? rawMarket.trademe.sample_listings : []
-  };
-
-  const facebookData = {
-    low: Number(rawMarket?.facebook?.low ?? Math.round(recPrice * 0.8)),
-    median: Number(rawMarket?.facebook?.median ?? Math.round(recPrice * 0.94)),
-    high: Number(rawMarket?.facebook?.high ?? Math.round(recPrice * 1.05)),
-    sample_listings: Array.isArray(rawMarket?.facebook?.sample_listings) ? rawMarket.facebook.sample_listings : []
-  };
-
-  const ebayData = {
+  const searchData = {
     low: Number(rawMarket?.ebay?.low ?? Math.round(recPrice * 0.9)),
-    median: Number(rawMarket?.ebay?.median ?? Math.round(recPrice * 1.08)),
-    high: Number(rawMarket?.ebay?.high ?? Math.round(recPrice * 1.25)),
+    median: Number(rawMarket?.ebay?.median ?? recPrice),
+    high: Number(rawMarket?.ebay?.high ?? Math.round(recPrice * 1.15)),
     sample_listings: Array.isArray(rawMarket?.ebay?.sample_listings) ? rawMarket.ebay.sample_listings : []
   };
 
@@ -100,18 +86,16 @@ export default function ResultScreen() {
         }
       }))
     : [
-        { name: 'Trade Me (NZ)', data: trademeData },
-        { name: 'Facebook Marketplace', data: facebookData },
-        { name: 'eBay (Global)', data: ebayData },
+        { name: 'Google Search Market Data', data: searchData }
       ];
 
   const trend = (rawMarket.trend || 'stable').toLowerCase();
-  const bestPlatform = rawMarket.best_platform || 'Trade Me';
+  const bestPlatform = rawMarket.best_platform || 'Google Search';
 
   return (
     <div className="w-full h-full flex flex-col bg-navy-950 overflow-y-auto pt-20 pb-28 px-4">
       {/* Demo Mode Badge */}
-      {currentScan.isMock && (
+      {anyScan.isMock && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -269,18 +253,25 @@ export default function ResultScreen() {
               </div>
               
               {listings.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-surface flex gap-2 overflow-x-auto hide-scrollbar">
-                  {listings.map((url, i) => (
-                    <a 
-                      key={i} 
-                      href={typeof url === 'string' && url.startsWith('http') ? url : '#'} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="shrink-0 flex items-center gap-1 text-[10px] font-mono uppercase bg-surface hover:bg-surface/80 text-ink-dim px-2 py-1 rounded transition-colors"
-                    >
-                      Listing {i + 1} <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  ))}
+                <div className="mt-3 pt-2.5 border-t border-surface flex flex-col gap-2">
+                  {listings.map((l: any, i: number) => {
+                    const listingUrl = typeof l === 'string' ? l : l?.url;
+                    const title = l?.title || `Evidence Link ${i + 1}`;
+                    const price = Number(l?.priceNzd) > 0 ? ` - ${formatCurrency(l.priceNzd)}` : '';
+                    if (!listingUrl || !listingUrl.startsWith('http')) return null;
+                    return (
+                      <a 
+                        key={i} 
+                        href={listingUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="w-full flex items-center justify-between text-[11px] font-mono uppercase bg-surface hover:bg-surface/80 text-ink-dim px-2.5 py-1.5 rounded transition-colors border border-surface/50 truncate"
+                      >
+                        <span className="truncate mr-2 max-w-[70%]">{title}{price}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -309,7 +300,7 @@ export default function ResultScreen() {
         {showJson && (
           <div className="mt-3 pt-3 border-t border-surface">
             <pre className="text-[11px] font-mono bg-navy-900 text-emerald-400 p-3 rounded-lg overflow-x-auto max-h-60 overflow-y-auto border border-surface">
-              {JSON.stringify({ product, market: { trademe: trademeData, facebook: facebookData, ebay: ebayData, trend, recommended_price: recPrice, best_platform: bestPlatform } }, null, 2)}
+              {JSON.stringify({ product, market: { search_data: searchData, trend, recommended_price: recPrice, best_platform: bestPlatform } }, null, 2)}
             </pre>
           </div>
         )}

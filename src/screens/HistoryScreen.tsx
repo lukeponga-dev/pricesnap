@@ -25,8 +25,8 @@ export default function HistoryScreen() {
           {history.map((scan, idx) => {
             const date = new Date(scan.date || scan.meta?.timestamp || new Date().toISOString());
             const isToday = new Date().toDateString() === date.toDateString();
-            const product = scan.product || { name: scan.name || 'Unknown', confidence: scan.confidence ? scan.confidence / 100 : 0, confidence_color: 'red' };
-            const market = scan.market || { recommended_price: scan.price?.average || 0 };
+            const product = scan.product || { name: scan.item_name || 'Unknown', confidence: scan.confidence || 0, confidence_color: 'red' };
+            const market = scan.market || { recommended_price: scan.resale_price_nz || 0 };
             
             return (
               <motion.div 

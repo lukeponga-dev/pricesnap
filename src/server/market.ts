@@ -1,100 +1,85 @@
 import type { ListingComparable } from './schema';
 import { calculateResellerValuation, robustMarketStats } from './valuation';
 
-async function ebayToken(): Promise<string | null> {
-  const clientId = process.env.EBAY_CLIENT_ID;
-  const clientSecret = process.env.EBAY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const response = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
-    method: 'POST',
-    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
-    signal: AbortSignal.timeout(5000),
-  });
-  if (!response.ok) throw new Error(`eBay OAuth failed (${response.status})`);
-  const body: any = await response.json();
-  return typeof body.access_token === 'string' ? body.access_token : null;
-}
-
-function conversionToNzd(currency: string): number | null {
-  if (currency === 'NZD') return 1;
-  const configured = Number(process.env[`${currency}_NZD_RATE`]);
-  return Number.isFinite(configured) && configured > 0 ? configured : null;
-}
-
-function normalizedWords(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(x => x.length > 1);
-}
-
-function relevant(query: string, title: string) {
-  const words = normalizedWords(query);
-  const haystack = title.toLowerCase();
-  if (!words.length) return true;
-  return words.filter(word => haystack.includes(word)).length / words.length >= 0.5;
-}
-
-function excludedAccessory(title: string) {
-  return /\b(case|cover|charger|cable|screen protector|parts only|for parts|manual|box only|replacement)\b/i.test(title);
-}
-
-export async function retrieveEbayComparables(query: string): Promise<ListingComparable[]> {
-  const token = await ebayToken();
-  if (!token) return [];
-  const url = new URL('https://api.ebay.com/buy/browse/v1/item_summary/search');
-  url.searchParams.set('q', query);
-  url.searchParams.set('limit', '50');
-  url.searchParams.set('filter', 'conditions:{USED},buyingOptions:{FIXED_PRICE}');
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_AU' },
-    signal: AbortSignal.timeout(7000),
-  });
-  if (!response.ok) throw new Error(`eBay Browse search failed (${response.status})`);
-  const body: any = await response.json();
-  const seen = new Set<string>();
-  return (Array.isArray(body.itemSummaries) ? body.itemSummaries : []).flatMap((item: any) => {
-    const value = Number(item?.price?.value);
-    const title = typeof item?.title === 'string' ? item.title : '';
-    const itemUrl = typeof item?.itemWebUrl === 'string' ? item.itemWebUrl : '';
-    if (!Number.isFinite(value) || value <= 0 || !itemUrl || !title || !relevant(query, title) || excludedAccessory(title)) return [];
-    if (seen.has(itemUrl)) return [];
-    seen.add(itemUrl);
-    const conversion = conversionToNzd(String(item?.price?.currency || '').toUpperCase());
-    if (conversion === null) return [];
-    return [{
-      source: 'ebay' as const,
-      title,
-      url: itemUrl,
-      priceNzd: Math.round(value * conversion * 100) / 100,
-      condition: item.condition ? String(item.condition) : null,
-      retrievedAt: new Date().toISOString(),
-    }];
-  });
-}
-
-export async function groundMarket(itemName: string) {
+export async function groundMarket(itemName: string, conditionScore: number | null = null, defects: string[] = []) {
   const started = Date.now();
   const warnings: string[] = [];
-  let ebayListings: ListingComparable[] = [];
+  let aiListings: ListingComparable[] = [];
 
-  try {
-    ebayListings = await retrieveEbayComparables(itemName);
-  } catch (error: any) {
-    warnings.push(`eBay: ${error?.message || String(error)}`);
+  const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    try {
+      const { GoogleGenAI, Type } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+      
+      const conditionStr = conditionScore !== null ? `Condition score: ${conditionScore}/10.` : 'Condition: Unknown.';
+      const defectsStr = defects.length ? ` Known defects: ${defects.join(', ')}.` : '';
+      
+      const prompt = `Search online using Google Search for the current second-hand / resale value of the following item: "${itemName}".
+${conditionStr}${defectsStr}
+Find recent listings on resale platforms (eBay, local classifieds, etc.).
+Extract an estimated reasonable resale price (in NZD or USD, convert to NZD if possible).
+Extract up to 6 sample listings with their title, URL, and estimated price in NZD.
+Do not hallucinate URLs. Ensure they come from the search results.`;
+
+      const res = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              low: { type: Type.NUMBER, nullable: true },
+              median: { type: Type.NUMBER, nullable: true },
+              high: { type: Type.NUMBER, nullable: true },
+              sample_listings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    url: { type: Type.STRING },
+                    priceNzd: { type: Type.NUMBER }
+                  },
+                  required: ["title", "url", "priceNzd"]
+                }
+              }
+            },
+            required: ["sample_listings"]
+          }
+        }
+      });
+      
+      const data = JSON.parse(res.text || '{}');
+      if (Array.isArray(data.sample_listings)) {
+        aiListings = data.sample_listings.map((l: any) => ({
+          source: 'google_search',
+          title: l.title || 'Unknown Listing',
+          url: l.url || 'https://google.com',
+          priceNzd: Number(l.priceNzd) || 0,
+          condition: null,
+          retrievedAt: new Date().toISOString()
+        })).filter((l: any) => l.priceNzd > 0);
+      }
+    } catch (e: any) {
+      warnings.push(`AI Search Agent: ${e?.message || String(e)}`);
+    }
   }
 
-  const ebay = robustMarketStats(ebayListings);
-  const valuation = calculateResellerValuation([ebay]);
+  const allListings = [...aiListings];
+  const combinedMarket = robustMarketStats(allListings);
+  const valuation = calculateResellerValuation([combinedMarket]);
 
   return {
     market: {
-      // These stay explicit rather than being populated by unofficial scrapers.
       trademe: null,
       facebook: null,
-      ebay,
+      ebay: combinedMarket, // Using generic grounded market
       trend: null,
       recommended_price: valuation.recommendedPrice,
-      best_platform: ebay?.median != null ? 'eBay' : null,
+      best_platform: combinedMarket?.median != null ? 'Google Search' : null,
       grounded: valuation.evidenceCount > 0,
     },
     durationMs: Date.now() - started,

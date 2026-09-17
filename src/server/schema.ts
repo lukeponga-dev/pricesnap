@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const ListingSchema = z.object({
-  source: z.enum(['ebay', 'trademe', 'facebook', 'other']),
+  source: z.enum(['ebay', 'trademe', 'facebook', 'other', 'google_search']),
   title: z.string(),
   url: z.string().url(),
   priceNzd: z.number().nonnegative(),
