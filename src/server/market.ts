@@ -1,6 +1,5 @@
 import type { ListingComparable } from './schema';
 import { calculateResellerValuation, robustMarketStats } from './valuation';
-import { retrieveBraveComparables } from './braveSearch';
 
 async function ebayToken(): Promise<string | null> {
   const clientId = process.env.EBAY_CLIENT_ID;
@@ -35,6 +34,10 @@ function relevant(query: string, title: string) {
   return words.filter(word => haystack.includes(word)).length / words.length >= 0.5;
 }
 
+function excludedAccessory(title: string) {
+  return /\b(case|cover|charger|cable|screen protector|parts only|for parts|manual|box only|replacement)\b/i.test(title);
+}
+
 export async function retrieveEbayComparables(query: string): Promise<ListingComparable[]> {
   const token = await ebayToken();
   if (!token) return [];
@@ -48,64 +51,50 @@ export async function retrieveEbayComparables(query: string): Promise<ListingCom
   });
   if (!response.ok) throw new Error(`eBay Browse search failed (${response.status})`);
   const body: any = await response.json();
+  const seen = new Set<string>();
   return (Array.isArray(body.itemSummaries) ? body.itemSummaries : []).flatMap((item: any) => {
     const value = Number(item?.price?.value);
     const title = typeof item?.title === 'string' ? item.title : '';
-    if (!Number.isFinite(value) || value <= 0 || !item?.itemWebUrl || !title || !relevant(query, title)) return [];
+    const itemUrl = typeof item?.itemWebUrl === 'string' ? item.itemWebUrl : '';
+    if (!Number.isFinite(value) || value <= 0 || !itemUrl || !title || !relevant(query, title) || excludedAccessory(title)) return [];
+    if (seen.has(itemUrl)) return [];
+    seen.add(itemUrl);
     const conversion = conversionToNzd(String(item?.price?.currency || '').toUpperCase());
     if (conversion === null) return [];
-    return [{ source: 'ebay' as const, title, url: String(item.itemWebUrl), priceNzd: Math.round(value * conversion * 100) / 100, condition: item.condition ? String(item.condition) : null, retrievedAt: new Date().toISOString() }];
-  });
-}
-
-function dedupe(listings: ListingComparable[]) {
-  const seen = new Set<string>();
-  return listings.filter(item => {
-    const key = `${item.source}:${item.url}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+    return [{
+      source: 'ebay' as const,
+      title,
+      url: itemUrl,
+      priceNzd: Math.round(value * conversion * 100) / 100,
+      condition: item.condition ? String(item.condition) : null,
+      retrievedAt: new Date().toISOString(),
+    }];
   });
 }
 
 export async function groundMarket(itemName: string) {
   const started = Date.now();
   const warnings: string[] = [];
-  const results = await Promise.allSettled([
-    retrieveBraveComparables(itemName, 'trademe'),
-    retrieveBraveComparables(itemName, 'facebook'),
-    retrieveEbayComparables(itemName),
-  ]);
+  let ebayListings: ListingComparable[] = [];
 
-  const names = ['Trade Me indexed search', 'Facebook Marketplace indexed search', 'eBay'] as const;
-  results.forEach((result, index) => {
-    if (result.status === 'rejected') warnings.push(`${names[index]}: ${result.reason?.message || String(result.reason)}`);
-  });
+  try {
+    ebayListings = await retrieveEbayComparables(itemName);
+  } catch (error: any) {
+    warnings.push(`eBay: ${error?.message || String(error)}`);
+  }
 
-  const trademeListings = dedupe(results[0].status === 'fulfilled' ? results[0].value : []);
-  const facebookListings = dedupe(results[1].status === 'fulfilled' ? results[1].value : []);
-  const ebayListings = dedupe(results[2].status === 'fulfilled' ? results[2].value : []);
-
-  const trademe = robustMarketStats(trademeListings);
-  const facebook = robustMarketStats(facebookListings);
   const ebay = robustMarketStats(ebayListings);
-  const valuation = calculateResellerValuation([trademe, facebook, ebay]);
-
-  const platforms = [
-    { name: 'Trade Me', market: trademe },
-    { name: 'Facebook Marketplace', market: facebook },
-    { name: 'eBay', market: ebay },
-  ].filter(x => x.market?.median != null);
-  platforms.sort((a, b) => (b.market?.evidence_count || 0) - (a.market?.evidence_count || 0));
+  const valuation = calculateResellerValuation([ebay]);
 
   return {
     market: {
-      trademe,
-      facebook,
+      // These stay explicit rather than being populated by unofficial scrapers.
+      trademe: null,
+      facebook: null,
       ebay,
       trend: null,
       recommended_price: valuation.recommendedPrice,
-      best_platform: platforms[0]?.name ?? null,
+      best_platform: ebay?.median != null ? 'eBay' : null,
       grounded: valuation.evidenceCount > 0,
     },
     durationMs: Date.now() - started,
