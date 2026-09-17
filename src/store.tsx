@@ -1,6 +1,5 @@
 import React,{createContext,useContext,useEffect,useState}from'react';
 import{AnalysisState,ScanResult,Screen}from'./types';import{triggerHaptic}from'./utils';
-import{generateMockResult}from'./mockData';
 
 interface Ctx{
   screen:Screen;
@@ -47,6 +46,7 @@ export function AppStateProvider({children}:{children:React.ReactNode}){
 
   const startScan=async(imageBase64:string)=>{
     triggerHaptic();
+    setCurrentScan(null);
     setAnalysisState('uploading');
     setScreen('analyzing');
     try{
@@ -63,26 +63,21 @@ export function AppStateProvider({children}:{children:React.ReactNode}){
       try{
         data=JSON.parse(text);
       }catch{
-        // If response is HTML or malformed, fallback gracefully to mock appraisal
-        console.warn("Received non-JSON response from server, falling back to robust appraisal result:", text.slice(0,100));
-        data=generateMockResult();
+        throw new Error(`Analysis service returned an invalid response (${response.status}).`);
       }
 
-      if(!response.ok && !data?.ok){
-        throw new Error(data?.error?.message||'Analysis failed');
+      if(!response.ok || data?.ok===false){
+        throw new Error(data?.error?.message||`Analysis failed (${response.status})`);
       }
 
       setCurrentScan(data as ScanResult);
       setAnalysisState('complete');
       setScreen('result');
     }catch(e:any){
-      console.warn("Analysis API encountered issue, using fallback demo valuation:", e?.message||e);
-      // Graceful fallback so user never gets stuck on error
-      const fallback=generateMockResult();
-      setCurrentScan(fallback);
-      setAnalysisState('complete');
-      setScreen('result');
-      showToast('Using simulated market valuation (AI model busy)');
+      console.error('Analysis failed:',e?.message||e);
+      setAnalysisState('error');
+      setScreen('scanner');
+      showToast(e?.message||'Unable to analyze this image. Please try again.');
     }
   };
 
