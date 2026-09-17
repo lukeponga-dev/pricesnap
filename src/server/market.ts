@@ -1,6 +1,6 @@
 import type { ListingComparable } from './schema';
 import { calculateResellerValuation, robustMarketStats } from './valuation';
-import { retrieveGoogleComparables } from './search';
+import { retrieveBraveComparables } from './braveSearch';
 
 async function ebayToken(): Promise<string | null> {
   const clientId = process.env.EBAY_CLIENT_ID;
@@ -72,8 +72,8 @@ export async function groundMarket(itemName: string) {
   const started = Date.now();
   const warnings: string[] = [];
   const results = await Promise.allSettled([
-    retrieveGoogleComparables(itemName, 'trademe'),
-    retrieveGoogleComparables(itemName, 'facebook'),
+    retrieveBraveComparables(itemName, 'trademe'),
+    retrieveBraveComparables(itemName, 'facebook'),
     retrieveEbayComparables(itemName),
   ]);
 
