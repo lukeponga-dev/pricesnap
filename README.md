@@ -1,52 +1,143 @@
-# PriceSnap
+# 📸 PriceSnap
 
-Photo identification and evidence-backed New Zealand secondhand asking-price estimates.
+PriceSnap is a high-fidelity, full-stack, AI-powered secondhand item scanner specifically tailored for the New Zealand (NZ) market. By utilizing computer vision and live-search grounding, it allows users to take a photo of any secondhand item, instantly identify it, and receive an evidence-backed NZD resale price estimate grounded in real-time listings from platforms like Trade Me, Facebook Marketplace, and eBay.
 
-## Run locally
+---
 
-Use Node.js 22+ and the repository's Bun lockfile:
+## ✨ Key Features
 
-```sh
-bun install --frozen-lockfile
-cp .env.example .env
-# Set GEMINI_API_KEY in .env to your Google AI Studio key.
-bun run dev
+- **🤖 AI Vision Identification**: Powered by `gemini-3.8-flash` to instantly identify items, assess visible conditions, list potential defects, and establish a confidence rating from a simple photo.
+- **🌐 Real-Time Google Search Grounding**: Dynamically queries live marketplace listings from Trade Me, eBay, Cash Converters, and publicly indexed Facebook Marketplace.
+- **📊 Statistical Valuation Engine**: Calculates a robust resale estimate using the median of deduplicated, outlier-filtered used/refurbished asking prices, complete with an interquartile range (IQR) to show price dispersion.
+- **📱 Progressive Web App (PWA)**: Built with offline support, local app caching, a customizable Service Worker, and a local history log for quick retrieval of past appraisals.
+- **🎨 Elite UI/UX Design**: Clean, high-contrast, modern interface utilizing cohesive light modes, rich negative space, and smooth micro-animations powered by Framer Motion.
+- **📈 Integrated Pitch Deck**: A fully interactive, beautifully designed slide-deck view built directly into the application, mapping out the product vision, market size (NZ secondhand), and SaaS monetisation strategy.
+
+---
+
+## 🏗️ Technical Architecture
+
+### System Flow
+```
+[ User Photo / Upload ]
+          │
+          ▼
+[ POST /api/analyze (NDJSON Stream) ]
+          │
+          ├───► 🔮 Stage 1: AI Vision (Gemini 3.8-Flash)
+          │                 ├─ Image Analysis & Attribute Parsing
+          │                 └─ Output Schema: Name, Brand, Category, Defects
+          │
+          ├───► 🔍 Stage 2: Evidence Grounding (Google Search Grounding)
+          │                 ├─ Real-Time NZ Marketplace Query
+          │                 └─ Citation Retrieval & Verified NZD Offers
+          │
+          └───► 📊 Stage 3: Statistical Filtering
+                            ├─ Outlier Detection (Interquartile Range)
+                            └─ Median Price Estimation & Dispersion Calculation
+          │
+          ▼
+[ Clean, Streaming Micro-Updates to Frontend UI ]
 ```
 
-If the tsx launcher cannot create its local IPC socket, use `node --import tsx server.ts`.
-The local server loads `.env` automatically. On Vercel set the key in the project's environment settings for every environment you use, including previews. Never expose the key through a VITE_ variable. A placeholder is not a usable key.
+---
 
-`GEMINI_MODEL` configures vision; `GEMINI_GROUNDING_MODEL` configures search (otherwise it uses the vision model). Both default to `gemini-3.5-flash`. Use a model your Google project can access with image input and Google Search support. No eBay/Facebook/Trade Me API credentials or guessed exchange rates are used. Google API usage and search remain subject to your project's quota and pricing.
+## 🚀 Getting Started
 
-## Analysis flow
+### Prerequisites
+- **Node.js**: Version 22.0.0 or higher
+- **Bun**: Fast JavaScript package manager & runner
 
-1. The browser prepares a JPEG up to 1600 pixels on its longest side and uploads it to `/api/analyze`.
-2. Gemini returns schema-constrained item identification, visible condition and identification confidence. A photo cannot establish working order or hidden specifications.
-3. The server checks public Trade Me and eBay pages alongside Google Search for Trade Me, publicly indexed Facebook Marketplace, used/refurbished Google Shopping offers, Cash Converters and other NZ secondhand retailers. Login-only or blocked pages are not bypassed.
-4. Only comparable NZD prices are accepted. Direct HTML prices must be attached to their own product/offer. Generated search prices need grounding support covering the price and a citation from Google's metadata. Currency conversion, unsupported prices, wrong variants and accessories are excluded.
-5. The displayed estimate is the median of deduplicated, outlier-filtered asking prices; the range is the interquartile range. Thin evidence receives low confidence. This is an evidence heuristic, not a calibrated probability of sale. Condition observations are shown separately without an arbitrary numerical discount.
-6. If pricing evidence is unavailable, identification and warnings are still returned, with null price fields. There is no mock appraisal or fabricated fallback price.
+### Local Installation & Run
 
-The vision phase has a 30-second budget and search a 45-second budget. Only transient provider 5xx errors are retried once within the same phase budget. Quota, key and model configuration errors are surfaced explicitly.
+1. **Clone the repository and navigate to the project root:**
+   ```bash
+   cd pricesnap
+   ```
 
-## API compatibility and deployment
+2. **Install dependencies using the Bun lockfile:**
+   ```bash
+   bun install --frozen-lockfile
+   ```
 
-`POST /api/analyze` and `POST /api/pricesnap` both accept JSON with `imageBase64` (or the legacy `image`) containing a JPEG/PNG/WebP data URL. Default responses are JSON, including the existing root, `product`, and nested `appraisal` fields. The web client requests `Accept: application/x-ndjson` to receive actual `identifying` and `grounding` events followed by a result or error event. Streaming clients must inspect the terminal event, since HTTP headers have already been sent.
+3. **Configure Environment Variables:**
+   Create a `.env` file from the provided example:
+   ```bash
+   cp .env.example .env
+   ```
+   Open `.env` and set your Google AI Studio credentials:
+   ```env
+   GEMINI_API_KEY="your-google-ai-studio-api-key"
+   ```
 
-Vercel routes use the default Node.js runtime with a 120-second maximum duration. Error responses carry request IDs. Analysis responses are marked `no-store`. The server validates decoded images up to 15 MB; hosting request limits also apply, so external clients should resize photos before sending them.
+4. **Start the Development Server:**
+   ```bash
+   bun run dev
+   ```
+   The local Express + Vite dev server will boot and run on **`http://localhost:3000`**.
 
-Google Search citation links are displayed alongside asking prices. Search suggestions returned by Google are shown in a sandboxed frame. Sources can be stale or unavailable; open a listing before relying on its current availability or condition. No live price is guaranteed for every image.
+> **Note on launchers:** If the `tsx` launcher fails to bind to its local IPC socket in your environment, run the app using: `node --import tsx server.ts`.
 
-## Verification
+---
 
-```sh
-bun run lint
+## ⚙️ Configuration & Grounding Logic
+
+### Environment Tuning
+- `GEMINI_MODEL`: Defines the vision and appraisal model (defaults to `gemini-3.8-flash`).
+- `GEMINI_GROUNDING_MODEL`: Configures the model used for search grounding (defaults to `gemini-3.8-flash`).
+- Set your keys as server secrets. **Never** prefix your Gemini API keys with `VITE_` as that exposes them to client-side code.
+
+### Grounding & Appraisal Constraints
+1. **Source Filtering**: The appraisal server searches public listings from Trade Me, eBay, Facebook Marketplace (publicly indexed), Cash Converters, and other reputable New Zealand secondhand retailers. It strictly respects login-walls and paywalls.
+2. **Currency Integrity**: Only verified NZD prices are considered. Any non-NZD values or failed conversions are excluded to prevent cross-border distortion.
+3. **Outlier Filtering**: Estimates are calculated mathematically using the median of deduplicated listing prices. Low-confidence categories or highly dispersed ranges represent thin evidence, which is communicated explicitly rather than hiding behind a fabricated average.
+
+---
+
+## 🧪 Testing & Verification
+
+The suite includes tests exercising the full request-response lifecycle, streaming NDJSON client pipelines, statistical math, NZD currency filters, and model override configs.
+
+Run the test runner, linter, and compilation:
+```bash
+# Run unit and integration tests (Vitest)
 bun run test
+
+# Run code style & type checks
+bun run lint
+
+# Compile and build the production bundle
 bun run build
 ```
 
-Tests exercise the HTTP handler, JSON and streaming clients, provider errors, incomplete responses, evidence/citation matching, NZD filtering, model variants, deduplication, and outlier statistics. Provider responses in tests are deterministic fixtures, never production fallback data.
+---
 
-For a live smoke test after configuring a deployment: upload a clear photo of a known secondhand product and its model label; check the identity, NZD price, source links, and price confidence. Also test an unidentified photo and a product with no available comparables. A successful local build or fixture test does not establish live Google account access or marketplace coverage.
+## 🌐 API Reference
 
-References: [Google Search grounding](https://ai.google.dev/gemini-api/docs/google-search), [grounding metadata](https://ai.google.dev/api/generate-content#GroundingMetadata), [Vercel Node.js functions](https://vercel.com/docs/functions/runtimes/node-js).
+### `POST /api/analyze` / `POST /api/pricesnap`
+
+Accepts a JSON payload containing base64-encoded image data, returning a streaming NDJSON (newline-delimited JSON) feed of progress and results.
+
+#### Request Body
+```json
+{
+  "image": "data:image/jpeg;base64,/9j/4AAQSk..."
+}
+```
+
+#### NDJSON Response Stream Events
+```json
+{"event": "identifying"}
+{"event": "identified", "data": { "name": "Sony WH-1000XM4", "brand": "Sony", "condition_score": 8 }}
+{"event": "grounding"}
+{"event": "result", "data": { "item": "Sony WH-1000XM4", "resale_price_nz": 250, "market": { "low": 180, "high": 290 } }}
+```
+
+---
+
+## 🛠️ Built With
+
+- **Frontend**: [React](https://react.dev/), [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/), [Framer Motion](https://www.framer.com/motion/)
+- **Backend**: [Express](https://expressjs.com/), [TypeScript](https://www.typescriptlang.org/)
+- **AI Platform**: [@google/genai SDK](https://github.com/google/generative-ai-js) (Gemini 3.8-Flash with Google Search Grounding)
+- **Tooling**: [Bun](https://bun.sh/), [Vitest](https://vitest.dev/)

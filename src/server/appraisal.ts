@@ -68,7 +68,7 @@ export async function analyzeAppraisal(body: unknown, requestId = crypto.randomU
           required: ['item', 'item_name', 'item_category', 'brand', 'condition_score', 'confidence', 'defects'],
         },
       },
-    }, 30000);
+    }, 60000);
     if (response.promptFeedback?.blockReason || response.candidates?.[0]?.finishReason === 'SAFETY') {
       throw new AppraisalError('The image could not be analysed. Try a different photo of the item.', 'IMAGE_BLOCKED', 422);
     }
@@ -77,7 +77,17 @@ export async function analyzeAppraisal(body: unknown, requestId = crypto.randomU
     if (error instanceof AppraisalError) throw error;
     const status = providerStatus(error);
     if (status === 429) throw new AppraisalError('AI quota is exhausted. Please wait before trying again.', 'AI_RATE_LIMITED', 429);
-    if ([400, 401, 403, 404].includes(status)) throw new AppraisalError('AI configuration was rejected. Check the server API key and GEMINI_MODEL setting.', 'AI_CONFIGURATION_ERROR', 503);
+    if ([500, 502, 503, 504].includes(status)) {
+      throw new AppraisalError('AI model is currently experiencing high demand or is temporarily unavailable. Please try again later.', 'AI_SERVICE_UNAVAILABLE', 503);
+    }
+    if ([400, 401, 403, 404].includes(status)) {
+      console.error('AI error details:', error);
+      throw new AppraisalError('AI configuration was rejected. Check the server API key and GEMINI_MODEL setting.', 'AI_CONFIGURATION_ERROR', 503);
+    }
+    if ((error as Error)?.name === 'AbortError') {
+      throw new AppraisalError('AI analysis timed out. Please try again.', 'AI_SERVICE_UNAVAILABLE', 503);
+    }
+    console.error('Unhandled AI Error:', error);
     throw new AppraisalError('AI analysis timed out or is temporarily unavailable. Please try again.', 'AI_SERVICE_UNAVAILABLE', 503);
   }
 

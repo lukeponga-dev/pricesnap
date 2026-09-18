@@ -12,13 +12,21 @@ export default function ScannerScreen() {
 
   const setupCamera = useCallback(async () => {
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn("Camera API not supported in this browser/environment.");
         setHasCamera(false);
         return;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
+      
+      const constraints = { 
+        video: { 
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 1280 }
+        } 
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }

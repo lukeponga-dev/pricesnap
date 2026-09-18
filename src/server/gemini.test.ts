@@ -12,8 +12,8 @@ describe('Gemini configuration and retries', () => {
     expect(geminiKey()).toBe('studio-test-key');
   });
   it('uses server model overrides for both phases', () => {
-    vi.stubEnv('GEMINI_MODEL', 'vision-model'); vi.stubEnv('GEMINI_GROUNDING_MODEL', 'search-model');
-    expect(geminiModel()).toBe('vision-model'); expect(groundingModel()).toBe('search-model');
+    vi.stubEnv('GEMINI_MODEL', 'gemini-vision-model'); vi.stubEnv('GEMINI_GROUNDING_MODEL', 'gemini-search-model');
+    expect(geminiModel()).toBe('gemini-vision-model'); expect(groundingModel()).toBe('gemini-search-model');
   });
   it('retries one transient failure with the same deadline', async () => {
     call.mockRejectedValueOnce({ status: 503 }).mockResolvedValueOnce({ text: 'ok' });
