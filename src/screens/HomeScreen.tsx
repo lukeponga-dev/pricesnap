@@ -49,7 +49,10 @@ export default function HomeScreen() {
         className="mb-8"
       >
         <div 
-          onClick={() => setScreen('pitch')}
+          onClick={() => {
+            sessionStorage.setItem('pitch_back', 'home');
+            setScreen('pitch');
+          }}
           className="pw-card relative overflow-hidden p-4 flex items-center gap-4 border border-snap/30 bg-navy-900/60 hover:bg-navy-900 transition-all cursor-pointer group hover:border-snap/50 active:scale-[0.99]"
         >
           {/* Subtle gradient light background */}

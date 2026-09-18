@@ -62,7 +62,10 @@ export default function SettingsScreen() {
             </div>
           </div>
           <button
-            onClick={() => setScreen('privacy')}
+            onClick={() => {
+              sessionStorage.setItem('privacy_back', 'settings');
+              setScreen('privacy');
+            }}
             className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-navy-900 hover:bg-navy-800 text-ink border border-surface flex items-center gap-1.5 transition-all shrink-0"
           >
             <FileText className="w-3.5 h-3.5 text-snap" />

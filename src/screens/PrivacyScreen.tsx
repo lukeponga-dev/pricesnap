@@ -5,21 +5,23 @@ import { ArrowLeft, Shield, Lock, Trash2, Mail } from 'lucide-react';
 export default function PrivacyScreen() {
   const { setScreen } = useAppState();
   const [activeTab, setActiveTab] = useState<'privacy' | 'deletion'>('privacy');
+  
+  const backTarget = (sessionStorage.getItem('privacy_back') as any) || 'settings';
 
   return (
-    <div className="w-full h-full flex flex-col pt-20 pb-28 px-4 overflow-y-auto bg-navy-950">
+    <div className="w-full min-h-screen flex flex-col bg-navy-950 text-ink py-12 px-6 max-w-4xl mx-auto selection:bg-snap/20">
       {/* Top Bar with Back Button */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-surface/30">
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => setScreen('settings')}
-            className="p-2 bg-navy-900 text-ink-dim hover:text-ink hover:bg-navy-800 rounded-xl border border-surface transition-colors"
-            aria-label="Back to Settings"
+            onClick={() => setScreen(backTarget)}
+            className="p-2.5 bg-navy-900 text-ink-dim hover:text-ink hover:bg-navy-800 rounded-xl border border-surface/50 transition-colors cursor-pointer"
+            aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="font-display font-bold text-lg text-ink">Privacy & Legal</h1>
+            <h1 className="font-display font-bold text-xl text-ink">Privacy & Legal</h1>
             <p className="text-xs text-ink-faint">Owner: Luke Ponga (Trading as PriceSnap)</p>
           </div>
         </div>
