@@ -2,25 +2,47 @@
 @config "../tailwind.config.ts";
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap");
 
+:root {
+  --color-bg-950: 248 250 252;     /* Slate 50 - Light Canvas Background */
+  --color-bg-900: 255 255 255;     /* White - Light Card Background */
+  --color-bg-800: 241 245 249;     /* Slate 100 - Light Hover / Sub-layer */
+  --color-bg-750: 226 232 240;     /* Slate 200 - Light Active Pill */
+  --color-surface: 226 232 240;    /* Slate 200 - Light Border */
+  --color-ink: 15 23 42;          /* Slate 900 - Dark Primary Text */
+  --color-ink-dim: 71 85 105;      /* Slate 600 - Dim Secondary Text */
+  --color-ink-faint: 148 163 184;  /* Slate 400 - Faint Tertiary Text */
+}
+
+.dark {
+  --color-bg-950: 11 15 25;        /* Midnight Navy - Dark Canvas Background */
+  --color-bg-900: 17 24 39;        /* Slate 900 - Dark Card Background */
+  --color-bg-800: 30 41 59;        /* Slate 800 - Dark Hover / Sub-layer */
+  --color-bg-750: 51 65 85;        /* Slate 700 - Dark Active Pill */
+  --color-surface: 51 65 85;       /* Slate 700 - Dark Border */
+  --color-ink: 248 250 252;       /* Slate 50 - Crisp White / Light Text */
+  --color-ink-dim: 203 213 225;    /* Slate 300 - Muted Light Text */
+  --color-ink-faint: 148 163 184;  /* Slate 400 - Faint Meta Text */
+}
+
 @layer base {
   html {
-    @apply bg-navy-950 text-ink antialiased font-body text-base;
+    @apply bg-navy-950 text-ink antialiased font-body text-base transition-colors duration-200;
     scroll-behavior: smooth;
   }
 
-  body { @apply min-h-screen; }
+  body { @apply min-h-screen transition-colors duration-200; }
 
   h1 { @apply text-3xl font-display font-semibold text-ink tracking-tight; }
   h2 { @apply text-2xl font-display font-semibold text-ink tracking-tight; }
   h3 { @apply text-xl font-display font-medium text-ink; }
   p  { @apply text-base leading-relaxed text-ink/80; }
 
-  ::selection { background: rgba(16, 185, 129, 0.2); color: #0F172A; }
+  ::selection { background: rgba(16, 185, 129, 0.2); color: inherit; }
 
   ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #F8FAFC; }
-  ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
+  ::-webkit-scrollbar-track { background: rgb(var(--color-bg-950)); }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--color-surface)); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-ink-faint)); }
 }
 
 @layer components {
@@ -29,27 +51,27 @@
     @apply inline-flex items-center justify-center gap-2
            bg-snap text-white rounded-btn px-6 py-3
            font-display font-semibold text-base
-           transition-transform duration-100 active:scale-95
-           hover:bg-snap-light cursor-pointer shadow-sm;
+           transition-all duration-100 active:scale-95
+           hover:bg-snap-dark cursor-pointer shadow-sm;
   }
   .pw-btn-outline {
     @apply inline-flex items-center justify-center gap-2
            bg-transparent text-ink border border-surface rounded-btn
            px-6 py-3 font-display font-medium text-base
-           transition-transform duration-100 active:scale-95
-           hover:bg-navy-900 cursor-pointer;
+           transition-all duration-100 active:scale-95
+           hover:bg-navy-800 cursor-pointer;
   }
   .pw-btn-soft {
     @apply inline-flex items-center justify-center gap-2
            bg-snap/10 text-snap border border-snap/20 rounded-btn
            px-6 py-3 font-display font-medium text-base
-           transition-transform duration-100 active:scale-95
-           hover:bg-snap/15 cursor-pointer;
+           transition-all duration-100 active:scale-95
+           hover:bg-snap/20 cursor-pointer;
   }
 
   /* Cards */
-  .pw-card { @apply bg-white rounded-card p-5 shadow-card border border-surface; }
-  .pw-card-sm { @apply bg-white rounded-lg p-3 shadow-card border border-surface; }
+  .pw-card { @apply bg-navy-900 text-ink rounded-card p-5 shadow-sm border border-surface transition-colors duration-200; }
+  .pw-card-sm { @apply bg-navy-900 text-ink rounded-lg p-3 shadow-sm border border-surface transition-colors duration-200; }
 
   /* Tags */
   .pw-tag {
@@ -67,23 +89,23 @@
 
   /* Inputs */
   .pw-input {
-    @apply w-full rounded-btn border border-surface bg-white/40
+    @apply w-full rounded-btn border border-surface bg-navy-900/60
            px-4 py-3 text-base text-ink placeholder:text-ink-faint
            font-body focus:border-snap focus:outline-none focus:ring-1
-           focus:ring-snap/30 transition-colors;
+           focus:ring-snap/30 transition-colors duration-200;
   }
 
   /* Bottom Nav */
   .pw-bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md
-           border-t border-surface flex justify-around py-2 z-40;
+    @apply fixed bottom-0 left-0 right-0 bg-navy-950/90 backdrop-blur-md
+           border-t border-surface flex justify-around py-2 z-40 transition-colors duration-200;
   }
   .pw-nav-link {
     @apply flex flex-col items-center gap-0.5 px-4 py-1
-           text-xs font-medium text-ink-faint transition-colors
+           text-xs font-medium text-ink-faint transition-colors duration-200
            hover:text-snap;
   }
-  .pw-nav-link-active { @apply text-snap; }
+  .pw-nav-link-active { @apply text-snap font-semibold; }
 
   /* Scan line */
   .pw-scan-line {
@@ -105,7 +127,7 @@
 
   /* Text helpers */
   .pw-text-heading { @apply font-display font-semibold text-ink tracking-tight; }
-  .pw-text-body { @apply text-ink/70 leading-relaxed; }
+  .pw-text-body { @apply text-ink/80 leading-relaxed; }
   .pw-text-meta { @apply text-xs text-ink-faint font-mono; }
 
   /* Gradient */

@@ -57,8 +57,8 @@ function MainFlow() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-900/5 sm:bg-slate-100 flex items-center justify-center">
-      <div className="w-full max-w-md mx-auto h-[100dvh] bg-navy-950 flex flex-col relative overflow-hidden font-body text-ink transition-colors selection:bg-snap/20 sm:h-screen sm:border-x border-surface/50 sm:shadow-2xl">
+    <div className="w-full min-h-screen bg-slate-200/60 dark:bg-slate-950/90 flex items-center justify-center transition-colors duration-200">
+      <div className="w-full max-w-md mx-auto h-[100dvh] bg-navy-950 flex flex-col relative overflow-hidden font-body text-ink transition-colors duration-200 selection:bg-snap/20 sm:h-screen sm:border-x border-surface sm:shadow-2xl">
         <Header />
         
         <div className="flex-1 relative overflow-hidden">

@@ -6,7 +6,7 @@ import { Logo } from './Logo';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 export function Header() {
-  const { screen, setScreen } = useAppState();
+  const { screen, setScreen, resolvedTheme, theme, setTheme } = useAppState();
   const isOnline = useOnlineStatus();
 
   const steps = [
@@ -18,13 +18,17 @@ export function Header() {
   const currentStepIndex = steps.findIndex(s => s.id === screen);
   const showSteps = currentStepIndex >= 0;
 
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
+
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-16 px-4 flex items-center justify-between bg-navy-950/80 backdrop-blur-md border-b border-surface transition-colors">
       <div className="flex-1 flex items-center gap-1">
         {(screen === 'result') && (
           <button 
             onClick={() => setScreen('scanner')}
-            className="p-2 -ml-2 rounded-full hover:bg-surface transition-colors text-ink-dim hover:text-ink"
+            className="p-2 -ml-2 rounded-full hover:bg-surface transition-colors text-ink-dim hover:text-ink cursor-pointer"
             aria-label="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -33,7 +37,7 @@ export function Header() {
         {(screen === 'home' || screen === 'scanner' || screen === 'history' || screen === 'settings') && (
           <button 
             onClick={() => setScreen('landing')}
-            className="flex items-center gap-2 hover:opacity-85 transition-opacity text-left group"
+            className="flex items-center gap-2 hover:opacity-85 transition-opacity text-left group cursor-pointer"
             title="Return to Landing Page"
           >
             <Logo className="w-8 h-8 group-hover:scale-105 transition-transform" />
@@ -50,7 +54,7 @@ export function Header() {
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300",
                   currentStepIndex === idx 
-                    ? "bg-snap text-navy-950" 
+                    ? "bg-snap text-white" 
                     : currentStepIndex > idx 
                       ? "bg-snap/20 text-snap"
                       : "bg-surface text-ink-faint"
@@ -79,6 +83,19 @@ export function Header() {
       </div>
 
       <div className="flex-1 flex items-center justify-end gap-2">
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 rounded-lg bg-navy-900 border border-surface text-ink-dim hover:text-ink hover:border-snap/40 transition-all cursor-pointer"
+          title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} mode`}
+          aria-label="Toggle theme"
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="w-3.5 h-3.5 text-amber-400" />
+          ) : (
+            <Moon className="w-3.5 h-3.5 text-slate-700" />
+          )}
+        </button>
+
         {isOnline ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold text-snap bg-snap/10 rounded-full border border-snap/20">
             <span className="h-1.5 w-1.5 rounded-full bg-snap animate-pulse" />

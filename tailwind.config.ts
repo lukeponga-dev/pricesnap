@@ -11,15 +11,20 @@ const config: Config = {
       // ── Colours ──────────────────────────────
       colors: {
         navy: {
-          950: "#F8FAFC", // Slate 50 - Background
-          900: "#FFFFFF", // White - Card Background
-          800: "#F1F5F9", // Slate 100 - Hover Background
+          950: "rgb(var(--color-bg-950) / <alpha-value>)", // Canvas Background
+          900: "rgb(var(--color-bg-900) / <alpha-value>)", // Card / Container Background
+          800: "rgb(var(--color-bg-800) / <alpha-value>)", // Sub-card / Elevated Hover
+          750: "rgb(var(--color-bg-750) / <alpha-value>)", // Active pill / selection
         },
-        surface: "#E2E8F0", // Slate 200 - Borders and Dividers
+        surface: "rgb(var(--color-surface) / <alpha-value>)", // Borders and Dividers
         snap: { DEFAULT: "#059669", dark: "#047857", light: "#10B981" }, // Emerald Green
-        lime: { DEFAULT: "#2563EB", dark: "#1D4ED8" }, // Blue
-        amber: { DEFAULT: "#0EA5E9", dark: "#0284C7" }, // Sky Blue
-        ink: { DEFAULT: "#0F172A", dim: "#334155", faint: "#94A3B8" }, // Slate 900 / 700 / 400
+        lime: { DEFAULT: "#2563EB", dark: "#1D4ED8", light: "#3B82F6" }, // Blue
+        amber: { DEFAULT: "#0EA5E9", dark: "#0284C7", light: "#38BDF8" }, // Sky / Amber
+        ink: {
+          DEFAULT: "rgb(var(--color-ink) / <alpha-value>)", // Primary Text
+          dim: "rgb(var(--color-ink-dim) / <alpha-value>)", // Secondary Text
+          faint: "rgb(var(--color-ink-faint) / <alpha-value>)", // Tertiary / Meta Text
+        },
       },
 
       // ── Fonts ────────────────────────────────

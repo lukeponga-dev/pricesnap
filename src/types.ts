@@ -1,5 +1,7 @@
 export type Screen = 'landing' | 'home' | 'scanner' | 'analyzing' | 'result' | 'history' | 'settings' | 'pitch' | 'privacy';
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export interface ProductInfo {
   name: string;
   item_name?: string;
