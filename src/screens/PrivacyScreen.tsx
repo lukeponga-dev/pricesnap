@@ -7,14 +7,15 @@ export default function PrivacyScreen() {
   const [activeTab, setActiveTab] = useState<'privacy' | 'deletion'>('privacy');
 
   return (
-    <div className="w-full h-full flex flex-col pt-20 pb-28 px-4 overflow-y-auto bg-navy-950">
+    <div className="w-full min-h-screen flex flex-col pt-10 pb-28 px-4 overflow-y-auto bg-navy-950">
+      <div className="max-w-3xl mx-auto w-full">
       {/* Top Bar with Back Button */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setScreen('settings')}
-            className="p-2 bg-navy-900 text-ink-dim hover:text-ink hover:bg-navy-800 rounded-xl border border-surface transition-colors"
-            aria-label="Back to Settings"
+            onClick={() => setScreen('landing')}
+            className="p-2 bg-navy-900 text-ink-dim hover:text-ink hover:bg-navy-800 rounded-xl border border-surface transition-colors cursor-pointer"
+            aria-label="Back to Landing Page"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -240,6 +241,7 @@ export default function PrivacyScreen() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -49,8 +49,8 @@ export default function PitchDeckScreen() {
   const calculatedROI = Math.round((scanVolume * 4.5) - 49); // assumes $4.5 saving per scan - $49 software cost
 
   return (
-    <div className="w-full h-full flex flex-col bg-navy-950 text-ink pt-20 pb-20 px-4 overflow-y-auto relative font-body select-none">
-      
+    <div className="w-full min-h-screen flex flex-col bg-navy-950 text-ink pt-12 pb-20 px-4 overflow-y-auto relative font-body select-none">
+      <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col justify-between">
       {/* Deck Header Info */}
       <div className="flex items-center justify-between mb-4 px-1">
         <div className="flex items-center gap-2">
@@ -468,6 +468,7 @@ export default function PitchDeckScreen() {
         </button>
       </div>
 
+      </div>
     </div>
   );
 }
