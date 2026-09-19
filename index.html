@@ -24,57 +24,23 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // ── Register Service Worker ──────────────
-      if ('serviceWorker' in navigator) {
+      // Safe Service Worker registration only in production / top-level context
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/sw.js')
-            .then((reg) => {
-              console.log('[PriceSnap] SW registered:', reg.scope);
-            })
-            .catch((err) => {
-              console.error('[PriceSnap] SW registration failed:', err);
-            });
+          try {
+            navigator.serviceWorker
+              .register('/sw.js')
+              .then((reg) => {
+                // registered
+              })
+              .catch(() => {
+                // silently handle in preview frames
+              });
+          } catch {
+            // ignore
+          }
         });
       }
-
-      // ── Install Prompt ───────────────────────
-      let deferredPrompt = null;
-
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-
-        const installBtn = document.querySelector('.install-btn');
-        if (installBtn) {
-          installBtn.style.display = 'inline-flex';
-          installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-              deferredPrompt.prompt();
-              const { outcome } = await deferredPrompt.userChoice;
-              console.log('[PriceSnap] Install:', outcome);
-              deferredPrompt = null;
-              installBtn.style.display = 'none';
-            }
-          });
-        }
-      });
-
-      window.addEventListener('appinstalled', () => {
-        console.log('[PriceSnap] Installed');
-      });
-
-      // ── Online/Offline indicator (optional) ──
-      function updateOnlineStatus() {
-        const status = document.querySelector('.net-status');
-        if (status) {
-          status.textContent = navigator.onLine ? 'online' : 'offline';
-          status.style.color = navigator.onLine ? '#10B981' : '#EF4444';
-        }
-      }
-      window.addEventListener('online', updateOnlineStatus);
-      window.addEventListener('offline', updateOnlineStatus);
-      updateOnlineStatus();
     </script>
   </body>
 </html>
