@@ -21,32 +21,6 @@
     <meta name="application-name" content="PriceSnap" />
   </head>
   <body>
-    <script>
-      // ── Suppress Benign Sandbox Cross-Origin Iframe Errors ──
-      window.addEventListener('unhandledrejection', (event) => {
-        const msg = event.reason?.message || String(event.reason);
-        if (msg && (
-          msg.includes("Blocked a frame with origin") ||
-          msg.includes("Failed to read a named property") ||
-          (msg.includes("origin") && msg.includes("Location"))
-        )) {
-          event.preventDefault();
-          console.debug("[PriceSnap] Suppressed benign sandbox iframe rejection:", msg);
-        }
-      });
-
-      window.addEventListener('error', (event) => {
-        const msg = event.message || event.error?.message;
-        if (msg && (
-          msg.includes("Blocked a frame with origin") ||
-          msg.includes("Failed to read a named property") ||
-          (msg.includes("origin") && msg.includes("Location"))
-        )) {
-          event.preventDefault();
-          console.debug("[PriceSnap] Suppressed benign sandbox iframe error:", msg);
-        }
-      });
-    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>

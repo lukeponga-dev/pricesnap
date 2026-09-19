@@ -33,25 +33,23 @@ export default function PitchDeckScreen() {
     }
   };
 
-  const backTarget = (sessionStorage.getItem('pitch_back') as any) || 'home';
-
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') handleNext();
       if (e.key === 'ArrowLeft') handlePrev();
-      if (e.key === 'Escape') setScreen(backTarget);
+      if (e.key === 'Escape') setScreen('home');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSlide, backTarget]);
+  }, [currentSlide]);
 
   // Calculations
   const calculatedLoss = Math.round(underpriceValue * 15 * 8); // assumes 8 items/week underpriced by $X
   const calculatedROI = Math.round((scanVolume * 4.5) - 49); // assumes $4.5 saving per scan - $49 software cost
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-navy-950 text-ink py-12 px-6 max-w-4xl mx-auto relative font-body select-none">
+    <div className="w-full h-full flex flex-col bg-navy-950 text-ink pt-20 pb-20 px-4 overflow-y-auto relative font-body select-none">
       
       {/* Deck Header Info */}
       <div className="flex items-center justify-between mb-4 px-1">
@@ -64,7 +62,7 @@ export default function PitchDeckScreen() {
           </span>
         </div>
         <button 
-          onClick={() => setScreen(backTarget)}
+          onClick={() => setScreen('home')}
           className="p-1.5 rounded-full bg-surface text-ink-dim hover:text-ink hover:bg-navy-800 transition-colors cursor-pointer"
           aria-label="Close Pitch Deck"
         >
@@ -430,7 +428,7 @@ export default function PitchDeckScreen() {
 
                 <div className="text-center mt-4">
                   <button 
-                    onClick={() => setScreen(backTarget)}
+                    onClick={() => setScreen('home')}
                     className="pw-btn text-xs py-2 px-4 inline-flex items-center gap-1 hover:scale-105 transition-transform"
                   >
                     <Sparkles className="w-3.5 h-3.5" /> Return to Scanner App

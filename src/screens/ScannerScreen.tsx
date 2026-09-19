@@ -1,38 +1,25 @@
 import { motion } from 'motion/react';
 import { useAppState } from '../store';
-import { Camera, CameraOff, Upload, ArrowLeft } from 'lucide-react';
-import { useRef, useEffect, useState, useCallback, ChangeEvent } from 'react';
+import { Camera, CameraOff } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 
 export default function ScannerScreen() {
-  const { startScan, setScreen } = useAppState();
+  const { startScan } = useAppState();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
 
   const setupCamera = useCallback(async () => {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.warn("Camera API not supported in this browser/environment.");
-        setHasCamera(false);
-        return;
-      }
-      
-      const constraints = { 
-        video: { 
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 1280 }
-        } 
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       setHasCamera(true);
     } catch (err) {
-      console.warn("Camera access denied or unavailable:", err);
+      console.error("Error accessing camera:", err);
       setHasCamera(false);
     }
   }, []);
@@ -49,7 +36,7 @@ export default function ScannerScreen() {
   }, [setupCamera]);
 
   const handleCapture = () => {
-    if (videoRef.current && canvasRef.current && videoRef.current.videoWidth > 0) {
+    if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
@@ -57,73 +44,33 @@ export default function ScannerScreen() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         startScan(dataUrl);
       }
     }
   };
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        startScan(result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   if (hasCamera === false) {
     return (
       <div className="w-full h-full flex flex-col bg-navy-950 overflow-hidden relative">
-        <header className="w-full max-w-5xl mx-auto px-6 py-5 flex items-center justify-between border-b border-surface/50 z-20">
-          <button 
-            onClick={() => setScreen('home')}
-            className="flex items-center gap-2 text-xs font-medium text-ink-dim hover:text-ink transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Home
-          </button>
-        </header>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 pt-20">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-50">
           <div className="w-24 h-24 bg-snap/10 rounded-full flex items-center justify-center mb-6 border border-snap/20">
             <CameraOff className="w-12 h-12 text-snap" />
           </div>
           <h2 className="text-2xl font-display font-bold text-ink mb-3">
-            Camera Access Unavailable
+            Camera Access Required
           </h2>
-          <p className="text-ink-dim mb-8 max-w-sm leading-relaxed text-sm">
-            Camera permissions were denied or your environment does not support direct camera capture. You can upload an image file instead.
+          <p className="text-ink-dim mb-8 max-w-sm leading-relaxed">
+            PriceSnap needs access to your camera to scan items and find their live market value.
           </p>
-          
-          <div className="flex flex-col gap-3 w-full max-w-xs">
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="pw-btn w-full flex items-center justify-center gap-2"
-            >
-              <Upload className="w-4 h-4" /> Upload Photo Instead
-            </button>
-            <button 
-              onClick={setupCamera}
-              className="px-4 py-3 bg-navy-900 hover:bg-navy-800 text-ink font-display font-medium text-xs rounded-xl border border-surface transition-all"
-            >
-              Retry Camera Permission
-            </button>
-          </div>
-          
-          <input 
-            ref={fileInputRef} 
-            type="file" 
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden" 
-            onChange={handleFileUpload} 
-          />
-
+          <button 
+            onClick={setupCamera}
+            className="pw-btn w-full max-w-xs"
+          >
+            Grant Access
+          </button>
           <p className="text-xs text-ink-faint mt-6 max-w-xs">
-            Use a clear JPEG, PNG or WebP photo showing the whole item and its label.
+            If you previously denied access, you may need to enable it in your browser settings.
           </p>
         </div>
       </div>
@@ -132,21 +79,6 @@ export default function ScannerScreen() {
 
   return (
     <div className="w-full h-full flex flex-col bg-navy-950 overflow-hidden relative">
-      <header className="absolute top-0 left-0 right-0 px-6 py-5 flex items-center justify-between z-30">
-        <button 
-          onClick={() => setScreen('home')}
-          className="flex items-center gap-2 text-xs font-medium text-white/80 hover:text-white bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 text-xs font-medium text-white/80 hover:text-white bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 transition-colors"
-        >
-          <Upload className="w-4 h-4" /> Upload Photo
-        </button>
-      </header>
-
       {/* Full-bleed camera background */}
       <div className="absolute inset-0 w-full h-full overflow-hidden z-0 bg-black">
         <video 
@@ -185,7 +117,6 @@ export default function ScannerScreen() {
       </div>
       
       <canvas ref={canvasRef} className="hidden" />
-      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
 
       {/* Controls */}
       <div className="absolute bottom-0 inset-x-0 h-48 bg-gradient-to-t from-black/60 via-black/30 to-transparent pb-20 flex items-center justify-center z-30">

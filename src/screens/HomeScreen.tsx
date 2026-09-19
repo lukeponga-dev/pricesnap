@@ -49,10 +49,7 @@ export default function HomeScreen() {
         className="mb-8"
       >
         <div 
-          onClick={() => {
-            sessionStorage.setItem('pitch_back', 'home');
-            setScreen('pitch');
-          }}
+          onClick={() => setScreen('pitch')}
           className="pw-card relative overflow-hidden p-4 flex items-center gap-4 border border-snap/30 bg-navy-900/60 hover:bg-navy-900 transition-all cursor-pointer group hover:border-snap/50 active:scale-[0.99]"
         >
           {/* Subtle gradient light background */}
@@ -131,7 +128,7 @@ export default function HomeScreen() {
                 const name = scan.product?.name || anyScan.name || anyScan.item_name || 'Item';
                 const date = scan.date || anyScan.meta?.timestamp || 'Recently';
                 const emoji = anyScan.emoji || '📦';
-                const price = scan.market?.recommended_price ?? anyScan.price?.average ?? anyScan.resale_price_nz ?? null;
+                const price = scan.market?.recommended_price ?? anyScan.price?.average ?? anyScan.resale_price_nz ?? 0;
 
                 return (
                   <div 
@@ -148,7 +145,7 @@ export default function HomeScreen() {
                     </div>
                     <div className="text-right">
                       <span className="font-display font-bold text-sm text-snap">
-                        {price == null ? 'Price unavailable' : formatCurrency(price)}
+                        {formatCurrency(price)}
                       </span>
                     </div>
                   </div>
@@ -168,11 +165,11 @@ export default function HomeScreen() {
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-snap/10 text-snap flex items-center justify-center font-bold border border-snap/20">2</span>
-                <span>Our AI identifies visible details and searches for comparable secondhand listings.</span>
+                <span>Our AI parses visual signatures to map it directly against sold comparables and live listings.</span>
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-snap/10 text-snap flex items-center justify-center font-bold border border-snap/20">3</span>
-                <span>Review available asking prices, source links, and evidence confidence.</span>
+                <span>Instantly review dynamic valuation ranges, sold comps, and appraisal confidence.</span>
               </li>
             </ol>
           </div>

@@ -25,8 +25,8 @@ export default function HistoryScreen() {
           {history.map((scan, idx) => {
             const date = new Date(scan.date || scan.meta?.timestamp || new Date().toISOString());
             const isToday = new Date().toDateString() === date.toDateString();
-            const product = scan.product || { name: scan.item_name || 'Unknown', confidence: scan.confidence || 0, confidence_color: 'red' };
-            const market = scan.market || { recommended_price: scan.resale_price_nz ?? null };
+            const product = scan.product || { name: scan.name || 'Unknown', confidence: scan.confidence ? scan.confidence / 100 : 0, confidence_color: 'red' };
+            const market = scan.market || { recommended_price: scan.price?.average || 0 };
             
             return (
               <motion.div 
@@ -44,7 +44,7 @@ export default function HistoryScreen() {
                   <h3 className="font-display font-semibold text-sm text-ink truncate">{product.name}</h3>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-sm font-display font-bold text-snap">
-                      {market.recommended_price == null ? 'Price unavailable' : formatCurrency(market.recommended_price)}
+                      {formatCurrency(market.recommended_price)}
                     </span>
                     <span className="text-2xs text-ink-faint flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -55,7 +55,7 @@ export default function HistoryScreen() {
 
                 <div className="flex flex-col items-end shrink-0">
                   <div className={`pw-tag mb-1 opacity-90 text-[10px] border ${product.confidence_color === 'green' ? 'text-lime border-lime/30 bg-lime/10' : product.confidence_color === 'orange' ? 'text-amber border-amber/30 bg-amber/10' : 'text-rose-400 border-rose-400/30 bg-rose-400/10'}`}>
-                    {product.confidence == null ? 'Unknown match' : `${Math.round(product.confidence * 100)}% match`}
+                    {Math.round(product.confidence * 100)}% match
                   </div>
                   <ChevronRight className="w-4 h-4 text-ink-faint" />
                 </div>

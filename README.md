@@ -1,95 +1,174 @@
-# 📸 PriceSnap
+# PriceSnap 📸 🇳🇿
 
-PriceSnap is a high-fidelity, full-stack, AI-powered secondhand item scanner and market price intelligence tool specifically tailored for the New Zealand (NZ) market. By utilizing computer vision and live-search grounding, it allows users to take a photo of any secondhand item, instantly identify it, and receive an evidence-backed NZD resale price estimate grounded in real-time listings from platforms like Trade Me, Facebook Marketplace, and eBay.
+> **AI item scanner with live market search and appraisal for Trade Me, Facebook Marketplace, and eBay.**
 
----
-
-## ✨ Key Features
-
-- **🤖 AI-Powered Item Scanning**: Powered by the advanced Google Gemini API (`gemini-3.8-flash`) to instantly identify items from any live photo or uploaded image, assess visible conditions, detect potential defects, and establish a confidence rating.
-- **📈 Market Price Intelligence**: Automatically analyzes real-time marketplace prices, calculates median asking values, identifies outlier prices using interquartile range (IQR) analysis, and displays the market dispersion to provide clear valuation context.
-- **📱 Progressive Web App (PWA)**: Completely offline-capable shell with asset caching, Service Worker support, and a local history database to retrieve past appraisals anytime.
-- **🎨 Elite UI/UX Design**: Built with a sleek, responsive dark/light balanced theme using negative space, custom vector iconography, and smooth transitions powered by Framer Motion.
-- **📊 Embedded Interactive Pitch Deck**: A beautifully crafted, slide-by-slide business pitch deck integrated directly within the application to present market sizes, user segments, and SaaS monetization plans.
+PriceSnap empowers sellers, thrifters, and resellers across New Zealand to snap a photo of any item and instantly receive AI-backed appraisals, condition grading, defect identification, and platform-specific resale estimates in NZD.
 
 ---
 
-## 🛠️ Key Technologies Used
+## 🚀 Key Features
 
-- **Frontend**: [React 18+](https://react.dev/), [Vite](https://vitejs.dev/) (Build tool), [Tailwind CSS](https://tailwindcss.com/) (Styling framework), [Framer Motion](https://www.framer.com/motion/) (Micro-interactions & animations), [Lucide React](https://lucide.dev/) (Iconography)
-- **Backend**: [Express](https://expressjs.com/) (Node.js web framework), [TypeScript](https://www.typescriptlang.org/)
-- **AI Core**: [@google/genai SDK](https://github.com/google/generative-ai-js) (Official Gemini API client)
-- **Grounding**: [Google Search Grounding Service](https://ai.google.dev/)
-- **Testing & Tooling**: [Bun](https://bun.sh/) (Runtime & package manager), [Vitest](https://vitest.dev/) (Unit and integration test suite)
+- 📷 **Instant Visual Scanner**: Live camera capture or drag-and-drop file upload with real-time viewfinder framing.
+- 🧠 **Multimodal AI Vision**: Powered by Google Gemini 3.6 Flash (`@google/genai`) to identify brand, model, material, vintage era, and condition.
+- 💰 **Tri-Market NZD Valuations**: Real-time estimates benchmarked for:
+  - **Trade Me** (NZ domestic primary marketplace)
+  - **Facebook Marketplace** (Local pickup and fast-sale median)
+  - **eBay** (Global collector benchmarks)
+- 🔍 **Condition & Defect Detection**: 1–10 condition score, letter grade (A–D), and enumerated defect summaries.
+- 🛡️ **Defensive Offline Fallback**: Deterministic New Zealand catalog fallback ensures app resilience even during network timeouts or offline mode.
+- 📱 **Progressive Web App (PWA)**: Installable on iOS and Android devices with offline caching and responsive mobile layout.
+- 📜 **Scan History & Bookmarking**: Persisted local history of previous appraisals with search and filter capabilities.
 
 ---
 
-## 🚀 Installation & Setup Instructions
+## 🛠️ Architecture & Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend UI** | React 19, TypeScript, Vite, Tailwind CSS v4, `motion` (animations), `lucide-react` |
+| **Backend Server** | Node.js, Express, `esbuild` CommonJS bundling |
+| **AI Vision Engine** | Google Gemini 3.6 Flash via `@google/genai` |
+| **Pipeline & CI/CD** | GitHub Actions (`.github/workflows/ci.yml`, `deploy.yml`), Multi-stage Docker |
+| **PWA & Storage** | Service Worker (`vite-plugin-pwa`), LocalStorage state hydration |
+
+---
+
+## 📂 Project Structure
+
+```
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # CI: Matrix lint, typecheck, build & artifact verification
+│       └── deploy.yml          # CD: Docker build & automated Cloud Run deployment
+├── docs/
+│   ├── ARCHITECTURE.md         # System design, JSON sanitizer, and fallback logic
+│   ├── API.md                  # REST API schemas, endpoints, error contracts
+│   ├── PIPELINE.md             # CI/CD pipeline reference and local simulation
+│   └── DEPLOYMENT.md           # Production deployment guide (Docker, Cloud Run)
+├── api/                        # Edge serverless endpoints (analyze.ts, ping.ts)
+├── public/                     # Static assets, PWA icons, manifest
+├── src/
+│   ├── components/             # Reusable UI components (Layout, BottomNav, PriceCard, etc.)
+│   ├── screens/                # App screens (HomeScreen, ScannerScreen, ResultScreen, etc.)
+│   ├── store.tsx               # Reactive application state store
+│   ├── types.ts                # Domain TypeScript contracts
+│   └── utils.ts                # Currency formatting and helpers
+├── server.ts                   # Express server entry point with Gemini integration & fallback catalog
+├── Dockerfile                  # Multi-stage container definition
+├── package.json                # Project dependencies and npm scripts
+└── README.md                   # Project overview and quickstart
+```
+
+---
+
+## ⚡ Getting Started
 
 ### Prerequisites
-- **Node.js**: Version 22.0.0 or higher
-- **Bun**: Fast JavaScript package manager & runner (recommended)
 
-### Local Environment Setup
+- **Node.js**: Version 20.x or 22.x+
+- **npm**: Version 10.x+
+- **Google Gemini API Key**: [Get an API key here](https://aistudio.google.com/app/apikey) *(Optional: PriceSnap features a built-in benchmark catalog fallback)*
 
-1. **Clone the repository and navigate to the project root:**
-   ```bash
-   cd pricesnap
-   ```
-
-2. **Install project dependencies:**
-   Using Bun:
-   ```bash
-   bun install --frozen-lockfile
-   ```
-   Or using npm:
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables:**
-   Duplicate the provided example environment template to create your active `.env` file:
-   ```bash
-   cp .env.example .env
-   ```
-   Open the `.env` file and input your Google AI Studio API key:
-   ```env
-   GEMINI_API_KEY="your-google-ai-studio-api-key"
-   ```
-
-4. **Start the Development Server:**
-   ```bash
-   bun run dev
-   ```
-   Or using npm:
-   ```bash
-   npm run dev
-   ```
-   The local Express + Vite dev server will spin up and bind to **`http://localhost:3000`**.
-
----
-
-## ⚠️ Google Search Grounding Disclaimer
-
-Please review the following operational parameters regarding PriceSnap's live valuation engine:
-
-- **Public Marketplace Data Only**: The market price intelligence calculations are grounded dynamically in search results returned by the Google Search Grounding Service. These results are limited to publicly indexed web content and listings from platforms like Trade Me, eBay, and open-access Facebook Marketplace postings. It cannot access listings behind private member portals, paywalls, or closed social networking groups.
-- **Information Recency & Volatility**: Resale values are subject to rapid marketplace fluctuations, geographical variations, and listing activity. The estimates presented should be treated as starting valuation benchmarks and not as certified legal appraisals, financial valuations, or guaranteed sale quotes.
-- **Algorithmic Evaluation**: Identified item details, defects, condition scores, and market comparisons are generated algorithmically using generative AI models. Users should independently inspect and verify item authenticity and local market listing history before engaging in transaction actions.
-
----
-
-## 🧪 Testing, Linting & Production
-
-PriceSnap includes a comprehensive test suite for validating standard request pipelines, currency handlers, and mathematical filters.
+### 1. Clone & Install Dependencies
 
 ```bash
-# Run the unit and integration tests (Vitest)
-bun run test
-
-# Run code style & TypeScript linter checks
-bun run lint
-
-# Compile and package the application for production deployment
-bun run build
+git clone https://github.com/your-username/pricesnap.git
+cd pricesnap
+npm install
 ```
+
+### 2. Configure Environment Variables
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and add your Gemini API key:
+
+```env
+GEMINI_API_KEY="your-gemini-api-key-here"
+```
+
+### 3. Run in Development Mode
+
+```bash
+npm run dev
+```
+
+The application dev server starts at **`http://localhost:3000`** with Vite live-reloading.
+
+---
+
+## 🧪 Scripts & Validation
+
+| Command | Action |
+|---|---|
+| `npm run dev` | Starts Express backend and Vite client in dev mode on port 3000 |
+| `npm run lint` | Runs TypeScript compiler verification (`tsc --noEmit`) |
+| `npm test` | Runs pipeline lint and typecheck tests |
+| `npm run build` | Builds production client (`dist/`) and bundles `dist/server.cjs` |
+| `npm start` | Runs production server (`node dist/server.cjs`) |
+| `npm run clean` | Cleans previous build outputs |
+
+---
+
+## 📡 API Overview
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/analyze` | Appraises image and returns pricing, condition, and market benchmarks |
+| `POST` | `/api/pricesnap` | Alias for `/api/analyze` |
+| `GET` | `/api/health` | Service health status and API key check |
+| `GET` | `/api/ping` | Fast liveness probe check |
+| `GET` | `/api/version` | Backend version and runtime info |
+
+*Detailed request and response schemas are documented in [`docs/API.md`](./docs/API.md).*
+
+---
+
+## 🔄 CI/CD Pipeline
+
+PriceSnap includes production-grade GitHub Actions workflows:
+
+1. **Continuous Integration (`.github/workflows/ci.yml`)**:
+   - Runs on all pushes and PRs to `main` and `master`.
+   - Matrix testing across Node.js 20.x and 22.x.
+   - Enforces `tsc --noEmit` and full production bundling (`npm run build`).
+   - Verifies `dist/index.html` and `dist/server.cjs` build integrity.
+
+2. **Continuous Deployment (`.github/workflows/deploy.yml`)**:
+   - Automated Docker containerization and deployment to Google Cloud Run.
+   - Zero-downtime deployment targeting container port 3000.
+
+*Refer to [`docs/PIPELINE.md`](./docs/PIPELINE.md) for full pipeline configuration details.*
+
+---
+
+## 🐳 Docker Deployment
+
+To build and run PriceSnap inside a self-contained container:
+
+```bash
+# Build Docker image
+docker build -t pricesnap:latest .
+
+# Run container on port 3000
+docker run -p 3000:3000 -e GEMINI_API_KEY="your-gemini-api-key" pricesnap:latest
+```
+
+---
+
+## 📚 Detailed Documentation
+
+- 📐 [**System Architecture**](./docs/ARCHITECTURE.md)
+- 🔌 [**REST API Reference**](./docs/API.md)
+- 🔁 [**CI/CD Pipeline Guide**](./docs/PIPELINE.md)
+- 🚀 [**Production Deployment Guide**](./docs/DEPLOYMENT.md)
+
+---
+
+## 📄 License
+
+This project is open-source software licensed under the MIT License.

@@ -1,0 +1,69 @@
+name: Deployment Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: pricesnap
+  REGION: asia-east1
+  IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/pricesnap:${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Build & Deploy to Google Cloud Run
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies & Build
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Google Cloud Authentication
+        if: ${{ env.PROJECT_ID != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: ${{ env.PROJECT_ID != '' }}
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Google Container Registry
+        if: ${{ env.PROJECT_ID != '' }}
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build Container Image
+        if: ${{ env.PROJECT_ID != '' }}
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+
+      - name: Push Container Image
+        if: ${{ env.PROJECT_ID != '' }}
+        run: |
+          docker push ${{ env.IMAGE_NAME }}
+
+      - name: Deploy to Cloud Run
+        if: ${{ env.PROJECT_ID != '' }}
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE_NAME }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --port 3000 \
+            --set-env-vars GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}

@@ -1,6 +1,0 @@
-{
-  "functions": {
-    "api/analyze.ts": { "maxDuration": 120 },
-    "api/pricesnap.ts": { "maxDuration": 120 }
-  }
-}
