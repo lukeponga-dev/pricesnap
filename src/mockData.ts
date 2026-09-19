@@ -1,82 +1,147 @@
-import { ScanResult } from './types';
+import { ValuationResult } from './types';
+import { ENGINE_VERSION, BENCHMARK_CATALOG } from './lib/valuation-engine/config';
+import { applyConditionAdjustment } from './lib/valuation-engine/pricing/condition';
+import { calculateRange } from './lib/valuation-engine/pricing/range';
+import { calculateConfidence } from './lib/valuation-engine/confidence/calculate';
+import { CleanEvidenceItem } from './lib/valuation-engine/types';
 
-export function generateMockResult(): ScanResult {
-  const items = [
-    { name: "Sony WH-1000XM5 Wireless Headphones", brand: "Sony", category: "Audio", low: 380, high: 490, avg: 435, score: 9, defects: [] },
-    { name: "Logitech MX Master 3S Wireless Mouse", brand: "Logitech", category: "Electronics", low: 130, high: 180, avg: 155, score: 8, defects: ["Light shine on thumb rest"] },
-    { name: "Nintendo Switch OLED Console (White)", brand: "Nintendo", category: "Gaming", low: 350, high: 430, avg: 395, score: 9, defects: [] },
-    { name: "Dyson V15 Detect Cordless Vacuum", brand: "Dyson", category: "Appliances", low: 850, high: 1100, avg: 975, score: 8, defects: ["Scuffs on dust bin canister"] },
-    { name: "Apple AirPods Pro (2nd Generation)", brand: "Apple", category: "Audio", low: 280, high: 360, avg: 320, score: 9, defects: [] },
-    { name: "Yeti Rambler 20oz Tumbler", brand: "Yeti", category: "Kitchenware", low: 40, high: 55, avg: 48, score: 8, defects: ["Light rub mark on bottom rim"] },
-    { name: "Nike Air Jordan 1 Retro High OG", brand: "Nike", category: "Footwear", low: 220, high: 310, avg: 265, score: 8, defects: ["Light creasing on toe box"] },
-    { name: "Apple iPhone 13 128GB", brand: "Apple", category: "Smartphone", low: 520, high: 640, avg: 580, score: 8, defects: ["Minor micro-scratches on bezel"] }
+export function generateMockResult(): ValuationResult {
+  const catalogItem = BENCHMARK_CATALOG[Math.floor(Math.random() * BENCHMARK_CATALOG.length)];
+  const scanId = Math.random().toString(36).substring(2, 9);
+  const timestamp = new Date().toISOString();
+
+  const product = {
+    name: catalogItem.name,
+    item_name: catalogItem.name,
+    brand: catalogItem.brand,
+    category: catalogItem.category,
+    item_category: catalogItem.category,
+    condition_score: catalogItem.conditionScore,
+    condition_grade: catalogItem.conditionGrade,
+    condition: {
+      score: catalogItem.conditionScore,
+      grade: catalogItem.conditionGrade,
+      defects: catalogItem.defects,
+      issues: catalogItem.defects,
+      summary: `Identified as ${catalogItem.name} in Grade ${catalogItem.conditionGrade} condition.`
+    },
+    defects: catalogItem.defects,
+    issues: catalogItem.defects,
+    summary: `Identified as ${catalogItem.name} in Grade ${catalogItem.conditionGrade} condition.`,
+    certaintyScore: 0.94,
+    suggestedQueries: [
+      `${catalogItem.brand} ${catalogItem.name} Trade Me NZ`,
+      `${catalogItem.name} Facebook Marketplace NZ`
+    ]
+  };
+
+  const estimatedValue = applyConditionAdjustment(
+    catalogItem.basePriceNZD,
+    catalogItem.conditionGrade,
+    catalogItem.conditionScore
+  );
+
+  const mockEvidence: CleanEvidenceItem[] = [
+    {
+      id: 'tm-1',
+      title: `${catalogItem.brand} ${catalogItem.name} (Great Condition)`,
+      price: Math.round(catalogItem.basePriceNZD * 1.02),
+      originalPrice: Math.round(catalogItem.basePriceNZD * 1.02),
+      originalCurrency: 'NZD',
+      priceNZD: Math.round(catalogItem.basePriceNZD * 1.02),
+      platform: 'Trade Me',
+      url: catalogItem.sampleListings[0] || 'https://www.trademe.co.nz',
+      condition: 'Very Good',
+      relevanceScore: 0.98,
+      isOutlier: false,
+      weight: 1.35
+    },
+    {
+      id: 'fb-1',
+      title: `${catalogItem.name} cash pickup Auckland`,
+      price: Math.round(catalogItem.basePriceNZD * 0.91),
+      originalPrice: Math.round(catalogItem.basePriceNZD * 0.91),
+      originalCurrency: 'NZD',
+      priceNZD: Math.round(catalogItem.basePriceNZD * 0.91),
+      platform: 'Facebook Marketplace',
+      url: catalogItem.sampleListings[1] || 'https://www.facebook.com/marketplace',
+      condition: 'Clean',
+      relevanceScore: 0.92,
+      isOutlier: false,
+      weight: 1.15
+    },
+    {
+      id: 'eb-1',
+      title: `${catalogItem.name} Global Verified`,
+      price: Math.round(catalogItem.basePriceNZD * 1.06),
+      originalPrice: Math.round(catalogItem.basePriceNZD * 1.06 / 1.66),
+      originalCurrency: 'USD',
+      priceNZD: Math.round(catalogItem.basePriceNZD * 1.06),
+      platform: 'eBay',
+      url: catalogItem.sampleListings[2] || 'https://www.ebay.com',
+      condition: 'Pre-Owned',
+      relevanceScore: 0.88,
+      isOutlier: false,
+      weight: 0.75
+    }
   ];
 
-  const randomItem = items[Math.floor(Math.random() * items.length)];
-  const avg = randomItem.avg;
+  const range = calculateRange(estimatedValue, mockEvidence);
+  const confidence = calculateConfidence(product, mockEvidence);
 
   return {
-    id: Math.random().toString(36).substring(2, 9),
-    date: new Date().toISOString(),
+    status: 'success',
+    valuationEngineVersion: ENGINE_VERSION,
+    id: scanId,
+    date: timestamp,
     isMock: true,
-    item_category: randomItem.category,
-    item_name: randomItem.name,
-    brand: randomItem.brand,
-    condition_score: randomItem.score,
-    defects: randomItem.defects,
-    resale_price_nz: avg,
-    confidence: 0.95,
-    product: {
-      name: randomItem.name,
-      item_name: randomItem.name,
-      brand: randomItem.brand,
-      category: randomItem.category,
-      item_category: randomItem.category,
-      condition_score: randomItem.score,
-      condition_grade: randomItem.score >= 9 ? "A" : randomItem.score >= 7 ? "B" : "C",
-      defects: randomItem.defects,
-      issues: randomItem.defects,
-      resale_price_nz: avg,
-      confidence: 0.95,
-      confidence_color: "green",
-      summary: randomItem.defects.length > 0 
-        ? `Condition score: ${randomItem.score}/10. Issues: ${randomItem.defects.join(", ")}` 
-        : `Mint condition (${randomItem.score}/10). No defects identified.`
+    product,
+    valuation: {
+      estimatedValue,
+      lowEstimate: range.low,
+      highEstimate: range.high,
+      currency: 'NZD',
+      recommendedResalePrice: estimatedValue,
+      quickSalePrice: range.quickSalePrice,
+      balancedPrice: range.balancedPrice,
+      maxProfitPrice: range.maxProfitPrice
     },
-    condition: {
-      score: randomItem.score,
-      grade: randomItem.score >= 9 ? "A" : randomItem.score >= 7 ? "B" : "C",
-      issues: randomItem.defects,
-      summary: randomItem.defects.length > 0 
-        ? `Condition score: ${randomItem.score}/10. Issues: ${randomItem.defects.join(", ")}` 
-        : `Mint condition (${randomItem.score}/10). No defects identified.`
+    confidence,
+    evidence: {
+      totalFound: mockEvidence.length,
+      filteredCount: mockEvidence.length,
+      sources: mockEvidence
     },
-    market: {
-      trademe: {
-        low: randomItem.low,
-        median: avg,
-        high: randomItem.high,
-        sample_listings: []
-      },
-      facebook: {
-        low: Math.round(avg * 0.82),
-        median: Math.round(avg * 0.94),
-        high: Math.round(avg * 1.05),
-        sample_listings: []
-      },
-      ebay: {
-        low: Math.round(avg * 0.9),
-        median: Math.round(avg * 1.08),
-        high: Math.round(avg * 1.25),
-        sample_listings: []
-      },
-      trend: "stable",
-      recommended_price: avg,
-      best_platform: "Trade Me"
-    },
+    market: range.marketOutput,
+    pricing_guide: {
+      quick_sale_price: range.quickSalePrice,
+      balanced_price: range.balancedPrice,
+      maxProfit_price: range.maxProfitPrice
+    } as any,
     meta: {
-      timestamp: new Date().toISOString(),
-      analysis_id: Math.random().toString(36).substring(2, 9)
-    }
+      engineVersion: ENGINE_VERSION,
+      timestamp,
+      analysisId: scanId,
+      executionTimeMs: 42
+    },
+    item_name: product.name,
+    item_category: product.category,
+    brand: product.brand,
+    condition_score: product.condition_score,
+    condition_grade: product.condition_grade,
+    defects: product.defects,
+    resale_price_nz: estimatedValue,
+    platforms: range.marketOutput.platforms.map(p => ({
+      name: p.name,
+      low: p.low,
+      median: p.median,
+      high: p.high,
+      data: {
+        low: p.low,
+        median: p.median,
+        high: p.high,
+        sample_listings: p.sample_listings
+      }
+    }))
   };
 }
