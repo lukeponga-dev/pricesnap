@@ -23,10 +23,13 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Typecheck and Lint
         run: npm run lint
+
+      - name: Test valuation and API
+        run: npm test
 
       - name: Build Application (Frontend Vite + Backend esbuild)
         run: npm run build
@@ -36,5 +39,13 @@ jobs:
       - name: Verify build artifacts
         run: |
           test -f dist/index.html || { echo "Missing dist/index.html"; exit 1; }
-          test -f dist/server.cjs || { echo "Missing dist/server.cjs"; exit 1; }
+          test -f build/server.cjs || { echo "Missing build/server.cjs"; exit 1; }
           echo "Build artifacts verified successfully."
+
+      - name: Install Chromium
+        if: matrix.node-version == '22.x'
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify mobile and desktop valuation workflow
+        if: matrix.node-version == '22.x'
+        run: npm run test:e2e

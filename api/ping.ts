@@ -1,14 +1,6 @@
-export const config = {
-  runtime: "edge"
-};
-
-export default function handler(req: Request) {
-  return new Response(
-    JSON.stringify({
-      status: "ok",
-      service: "pricesnap-backend",
-      timestamp: Date.now()
-    }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
+import type { Request, Response } from 'express';
+import { ENGINE_VERSION } from '../src/lib/valuation-engine/config';
+export default function handler(_req: Request, res: Response) {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json({ status: 'ok', service: 'pricesnap-api', engineVersion: ENGINE_VERSION, timestamp: Date.now() });
 }

@@ -1,76 +1,30 @@
-# PriceSnap CI/CD Pipeline Documentation
+# Build, verification and release pipeline
 
-This project uses **GitHub Actions** for continuous integration (CI) and continuous delivery (CD) workflows. The pipelines guarantee code reliability, strict TypeScript type checking, deterministic production bundling, and containerized deployment.
+The npm lockfile is authoritative. Use `npm ci` for repeatable dependencies. `bun.lock` is historical and is not used by CI.
 
----
-
-## 1. Continuous Integration (`.github/workflows/ci.yml`)
-
-The CI workflow triggers automatically on:
-- Every push to `main` or `master`
-- Every pull request targeting `main` or `master`
-
-### Jobs & Steps
-
-```
-[ Checkout Code ] 
-       │
-[ Setup Node.js Matrix: 20.x, 22.x ]
-       │
-[ Install Dependencies: npm ci ]
-       │
-[ Lint & Typecheck: npm run lint (tsc --noEmit) ]
-       │
-[ Production Build: npm run build ]
-       │  ├─► Vite Client Bundler (dist/index.html & assets)
-       │  └─► esbuild Server Compiler (dist/server.cjs)
-       ▼
-[ Verify Build Artifacts ]
-       (Ensures dist/index.html and dist/server.cjs exist)
+```mermaid
+flowchart TD
+    A["Feature branch"] --> B["TypeScript and engine/API tests"]
+    B --> C["Vite client and server build"]
+    C --> D["Mobile and desktop browser tests"]
+    D --> E["Draft PR review"]
+    E --> F["Private deployment and live Gemini scan"]
+    F --> G{"Live acceptance passed?"}
+    G -->|Yes| H["Approve release"]
+    G -->|No| I["Fix and retest failing boundary"]
+    I --> B
 ```
 
-### Local Simulation
-Run the same checks locally before pushing:
-```bash
-# 1. Typecheck and linting
-npm run lint
+## Commands
 
-# 2. Build compilation
-npm run build
+- `npm run lint`: TypeScript checking.
+- `npm test`: Node test runner with tsx import hook. Tests engine, evidence safety, request validation, errors, JSON/NDJSON parity and Gemini SDK transport with controlled provider responses.
+- `npm run build`: Vite assets to `dist/`, server bundle to `build/`.
+- `npm run check`: all three above.
+- `npx playwright install --with-deps chromium`: browser setup for CI/developer machines.
+- `npm run test:e2e`: Chromium mobile and desktop flows against the built app and a test-only fixture server. Build first.
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/absolute/path/to/chromium npm run test:e2e`: use an installed compatible Chromium when the default browser download is unavailable.
 
-# 3. Test runner
-npm test
-```
+Provider fixtures never activate in the production app. Browser tests exercise real capture upload preparation, fetch/stream handling, engine calculation, result rendering and saved-history interactions while replacing external AI outputs. They do not measure live model accuracy or source freshness.
 
----
-
-## 2. Continuous Delivery & Deployment (`.github/workflows/deploy.yml`)
-
-The deployment workflow builds a production Docker image and deploys it to **Google Cloud Run**.
-
-### Trigger Conditions
-- Push to `main`
-- Manual execution via GitHub `workflow_dispatch` button
-
-### Required Repository Secrets
-
-| Secret Name | Description |
-|---|---|
-| `GCP_PROJECT_ID` | Google Cloud project identifier |
-| `GCP_SA_KEY` | Service Account JSON credentials with Cloud Run & Artifact Registry Admin roles |
-| `GEMINI_API_KEY` | Google Gemini API key used for server-side item appraisal |
-
-### Deployment Lifecycle
-1. **Source Checkout & Dependencies**: Runs clean install and verified build.
-2. **GCP Authentication**: Authenticates with Google Cloud via `google-github-actions/auth`.
-3. **Container Build**: Builds the multi-stage `Dockerfile` with optimized Alpine base.
-4. **Registry Push**: Pushes image to Google Container Registry / Artifact Registry (`gcr.io/$PROJECT_ID/pricesnap:$COMMIT_SHA`).
-5. **Cloud Run Deployment**: Deploys container to Cloud Run on port 3000 with unauthenticated public access and secret injection.
-
----
-
-## 3. Container Pipeline (`Dockerfile`)
-
-The containerized pipeline utilizes a 2-stage Docker build:
-- **Stage 1 (Builder)**: Installs devDependencies, compiles client via Vite, bundles `server.ts` into CommonJS (`dist/server.cjs`).
-- **Stage 2 (Runner)**: Uses minimal `node:22-alpine`, installs only production dependencies (`npm ci --omit=dev`), runs as an unprivileged `node` user, and starts the server on port 3000.
+GitHub CI checks Node 20 and 22, engine/API tests and production artifacts. Browser checks run on Node 22. The separate existing Cloud Run workflow deploys main after its build/test checks when GCP secrets are configured. A feature-branch PR does not require merging or deploying production.

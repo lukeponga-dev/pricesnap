@@ -1,506 +1,69 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
 import { useAppState } from '../store';
-import { Bookmark, RefreshCcw, TrendingUp, TrendingDown, Minus, Sparkles, ExternalLink, Box, ChevronDown, ChevronUp, Code, ShieldCheck, Zap, DollarSign } from 'lucide-react';
-import { formatCurrency, triggerHaptic } from '../utils';
+import { Bookmark, RefreshCcw, ExternalLink, Box, ShieldCheck } from 'lucide-react';
+import { formatCurrency } from '../utils';
 
 export default function ResultScreen() {
   const { currentScan, setScreen, addToHistory } = useAppState();
-  const [showJson, setShowJson] = useState(false);
-  const [showConfidenceModal, setShowConfidenceModal] = useState(false);
-
+  const [showReasons, setShowReasons] = useState(false);
   if (!currentScan) return null;
-
-  const handleSave = () => {
-    triggerHaptic();
-    addToHistory(currentScan);
-  };
-
-  const handleScanAgain = () => {
-    triggerHaptic();
-    setScreen('scanner');
-  };
-
-  const anyScan = currentScan as any;
-
-  // 1. Product Information
-  const product = currentScan.product || {
-    name: anyScan.name || anyScan.item_name || 'Identified Item',
-    item_name: anyScan.item_name || anyScan.name || 'Identified Item',
-    brand: anyScan.brand || 'Unknown Brand',
-    category: anyScan.category || anyScan.item_category || 'General',
-    item_category: anyScan.item_category || anyScan.category || 'General',
-    condition_score: anyScan.condition_score ?? 8,
-    condition_grade: anyScan.condition_grade || (anyScan.condition?.grade) || 'A-',
-    defects: anyScan.defects || anyScan.issues || [],
-    issues: anyScan.issues || anyScan.defects || [],
-    summary: anyScan.summary || 'Appraisal completed.'
-  };
-
-  const conditionGrade = product.condition_grade || currentScan.condition?.grade || anyScan.condition_grade || 'A-';
-  const conditionScore = product.condition_score ?? currentScan.condition?.score ?? anyScan.condition_score ?? 8;
-  
-  const conditionIssues = Array.isArray(product.defects) && product.defects.length > 0
-    ? product.defects
-    : Array.isArray(product.issues) && product.issues.length > 0 
-      ? product.issues 
-      : (Array.isArray(currentScan.condition?.issues) ? currentScan.condition.issues : []);
-
-  const conditionSummary = product.summary || currentScan.condition?.summary || `Assessed condition score: ${conditionScore}/10 (Grade ${conditionGrade})`;
-
-  // 2. Canonical Valuation (Determined once on the server)
-  const hasInsufficientEvidence = anyScan.status === 'insufficient_evidence';
-  const legacyPrice = Number(anyScan.resale_price_nz ?? anyScan.market?.recommended_price ?? anyScan.price?.average ?? 0);
-  const valuation = currentScan.valuation || {
-    estimatedValue: legacyPrice,
-    lowEstimate: legacyPrice > 0 ? Math.round(legacyPrice * 0.85) : 0,
-    highEstimate: legacyPrice > 0 ? Math.round(legacyPrice * 1.18) : 0,
-    currency: 'NZD' as const,
-    recommendedResalePrice: legacyPrice,
-    quickSalePrice: legacyPrice > 0 ? Math.round(legacyPrice * 0.86) : 0,
-    balancedPrice: legacyPrice,
-    maxProfitPrice: legacyPrice > 0 ? Math.round(legacyPrice * 1.14) : 0
-  };
-
-  const recPrice = Number(valuation.recommendedResalePrice ?? valuation.estimatedValue ?? 0);
-
-  // 3. Confidence Metrics
-  const confidence = currentScan.confidence || {
-    score: 0,
-    percentage: 0,
-    level: 'LOW' as const,
-    color: 'red' as const,
-    reasons: ['Confidence data was not returned by the valuation engine.'],
-    factors: { identification: 0, sampleSize: 0, priceSpread: 0, sourceReliability: 0 }
-  };
-
-  const confidencePct = typeof confidence.percentage === 'number' 
-    ? confidence.percentage 
-    : Math.round((Number(confidence.score || 0.9) <= 1 ? Number(confidence.score || 0.9) * 100 : Number(confidence.score || 90)));
-
-  const confidenceColor = confidence.color || (confidencePct >= 82 ? 'green' : confidencePct >= 60 ? 'orange' : 'red');
-
-  // 4. Evidence Sources
-  const evidenceSources = currentScan.evidence?.sources || [];
-
-  // 5. Market Comparables
-  const rawMarket: any = currentScan.market || {};
-  const trademeData = rawMarket?.trademe || {
-    low: Math.round(recPrice * 0.88),
-    median: recPrice,
-    high: Math.round(recPrice * 1.14),
-    sample_listings: []
-  };
-
-  const facebookData = rawMarket?.facebook || {
-    low: Math.round(recPrice * 0.80),
-    median: Math.round(recPrice * 0.92),
-    high: Math.round(recPrice * 1.05),
-    sample_listings: []
-  };
-
-  const ebayData = rawMarket?.ebay || {
-    low: Math.round(recPrice * 0.90),
-    median: Math.round(recPrice * 1.08),
-    high: Math.round(recPrice * 1.25),
-    sample_listings: []
-  };
-
-  const platforms = Array.isArray(rawMarket?.platforms) && rawMarket.platforms.length > 0
-    ? rawMarket.platforms
-    : [
-        { name: 'Trade Me (NZ)', ...trademeData },
-        { name: 'Facebook Marketplace', ...facebookData },
-        { name: 'eBay (Global NZD)', ...ebayData },
-      ];
-
-  const trend = (rawMarket.trend || 'stable').toLowerCase();
-  const bestPlatform = rawMarket.best_platform || 'Trade Me';
-  const engineVersion = currentScan.valuationEngineVersion || currentScan.meta?.engineVersion || '1.0.0';
-
-  return (
-    <div className="w-full h-full flex flex-col bg-navy-950 overflow-y-auto pt-20 pb-28 px-4">
-      {/* Demo Mode Badge */}
-      {currentScan.isMock && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 bg-amber/10 border border-amber/20 rounded-xl px-4 py-2 flex items-center justify-center gap-2"
-        >
-          <Sparkles className="w-4 h-4 text-amber" />
-          <span className="text-xs font-medium text-amber">Demo Mode: Offline Benchmark Valuation</span>
-        </motion.div>
-      )}
-
-      {/* Item Identification Card */}
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="pw-card mb-4 flex items-center gap-4"
-      >
-        <div className="w-14 h-14 bg-navy-900 border border-surface rounded-xl flex items-center justify-center text-2xl shrink-0 text-snap shadow-inner">
-          <Box className="w-7 h-7" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-display font-semibold text-base text-ink truncate">{product.name || 'Identified Item'}</h2>
-          <p className="text-xs text-ink-faint mt-0.5">{product.brand || 'Generic'} • {product.category || 'General'}</p>
-        </div>
-        <div className="flex flex-col items-end shrink-0">
-          <button
-            onClick={() => {
-              triggerHaptic();
-              setShowConfidenceModal(true);
-            }}
-            title="Tap to learn about AI Confidence Score"
-            className={`pw-tag flex items-center gap-1.5 mb-1 border px-2.5 py-1 rounded-full text-xs font-semibold transition-transform active:scale-95 cursor-pointer shadow-sm ${
-              confidenceColor === 'green' 
-                ? 'text-lime border-lime/30 bg-lime/10 hover:bg-lime/20' 
-                : confidenceColor === 'orange' 
-                  ? 'text-amber border-amber/30 bg-amber/10 hover:bg-amber/20' 
-                  : 'text-rose-400 border-rose-400/30 bg-rose-400/10 hover:bg-rose-400/20'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full animate-pulse ${
-              confidenceColor === 'green' ? 'bg-lime' : confidenceColor === 'orange' ? 'bg-amber' : 'bg-rose-400'
-            }`} />
-            <span>{confidencePct}%</span>
-          </button>
-          <span className="text-[10px] text-ink-faint uppercase font-mono cursor-pointer hover:text-ink transition-colors" onClick={() => setShowConfidenceModal(true)}>
-            AI Confidence ⓘ
-          </span>
-        </div>
-      </motion.div>
-
-      {/* Condition & Cosmetic Wear */}
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.08 }}
-        className="pw-card mb-4 flex gap-4 items-center"
-      >
-        <div className="flex flex-col items-center justify-center border-r border-surface pr-4 shrink-0 min-w-[70px]">
-          <span className="text-[10px] uppercase font-mono tracking-wider text-ink-faint mb-0.5">Condition</span>
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-2xl font-display font-bold text-ink">{conditionScore}</span>
-            <span className="text-xs text-ink-faint font-mono">/10</span>
-          </div>
-          <span className="text-[10px] font-mono text-snap bg-snap/10 px-1.5 py-0.2 rounded mt-0.5">Grade {conditionGrade}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-ink leading-relaxed">{conditionSummary}</p>
-          {conditionIssues.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {conditionIssues.map((issue, i) => (
-                <span key={i} className="text-[10px] uppercase tracking-wider font-mono bg-surface text-ink-dim px-2 py-0.5 rounded border border-surface">
-                  {issue}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="inline-block mt-1 text-[11px] text-emerald-400/90 font-medium">
-              ✓ No detected scratches, dents, or defects
-            </span>
-          )}
-        </div>
-      </motion.div>
-
-      {hasInsufficientEvidence && (
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="pw-card mb-4 border-amber/30 bg-amber/10"
-        >
-          <h3 className="font-display font-semibold text-amber text-sm">Not enough market evidence</h3>
-          <p className="text-xs text-ink-dim mt-1 leading-relaxed">
-            PriceSnap identified the item, but could not find enough trustworthy priced comparables to calculate a reliable resale value. No fallback price has been invented.
-          </p>
-          <button onClick={handleScanAgain} className="mt-3 pw-btn-outline px-4 py-2 text-xs">
-            Scan again
-          </button>
-        </motion.div>
-      )}
-
-      {/* Recommended Resale Price Hero */}
-      {!hasInsufficientEvidence && <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.16 }}
-        className="pw-card mb-4 bg-gradient-to-br from-snap/10 via-transparent to-transparent border-snap/30"
-      >
-        <div className="flex justify-between items-end mb-3">
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-xs font-medium text-snap uppercase tracking-wider font-mono text-[10px]">Server Resale Valuation</span>
-              <span className="text-[9px] font-mono text-ink-faint bg-surface px-1.5 py-0.2 rounded">v{engineVersion}</span>
-            </div>
-            <div className="text-3xl font-display font-bold text-snap">
-              {formatCurrency(recPrice)}
-            </div>
-            <p className="text-[11px] text-ink-faint font-mono mt-0.5">
-              Range: {formatCurrency(valuation.lowEstimate)} – {formatCurrency(valuation.highEstimate)} NZD
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-medium text-ink-dim mb-1 uppercase tracking-wider font-mono text-[10px]">Best Platform</p>
-            <div className="text-xs font-bold text-ink bg-surface px-3 py-1.5 rounded-lg border border-surface/80 shadow-sm inline-block">
-              {bestPlatform}
-            </div>
-          </div>
-        </div>
-
-        {/* Pricing Strategy Guides */}
-        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-surface/60">
-          <div className="bg-surface/40 p-2 rounded-lg border border-surface text-center">
-            <span className="text-[9px] uppercase font-mono text-amber block">Quick Sale</span>
-            <span className="text-xs font-bold text-ink font-mono">{formatCurrency(valuation.quickSalePrice || Math.round(recPrice * 0.86))}</span>
-          </div>
-          <div className="bg-snap/10 p-2 rounded-lg border border-snap/20 text-center">
-            <span className="text-[9px] uppercase font-mono text-snap block">Balanced</span>
-            <span className="text-xs font-bold text-snap font-mono">{formatCurrency(valuation.balancedPrice || recPrice)}</span>
-          </div>
-          <div className="bg-surface/40 p-2 rounded-lg border border-surface text-center">
-            <span className="text-[9px] uppercase font-mono text-lime block">Max Profit</span>
-            <span className="text-xs font-bold text-ink font-mono">{formatCurrency(valuation.maxProfitPrice || Math.round(recPrice * 1.14))}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-ink-dim pt-2.5 mt-2.5 border-t border-surface/50">
-          {trend.includes('ris') ? (
-            <TrendingUp className="w-4 h-4 text-lime shrink-0" />
-          ) : trend.includes('fall') ? (
-            <TrendingDown className="w-4 h-4 text-rose-400 shrink-0" />
-          ) : (
-            <Minus className="w-4 h-4 text-ink-faint shrink-0" />
-          )}
-          <span>Market trend: <span className="font-semibold text-ink capitalize">{trend}</span></span>
-        </div>
-      </motion.div>}
-
-      {/* Market Platform Breakdown */}
-      {!hasInsufficientEvidence && <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.24 }}
-        className="mb-4 space-y-3"
-      >
-        <div className="flex justify-between items-center px-1">
-          <h3 className="text-[11px] font-display font-semibold uppercase tracking-wider text-ink-faint">Marketplace Comparisons</h3>
-          <span className="text-[10px] text-ink-faint font-mono">NZD Estimates</span>
-        </div>
-        
-        {platforms.map((plat: any, idx: number) => {
-          const platData = plat?.data || plat || {};
-          const low = Number(platData?.low ?? (plat?.low ?? Math.round(recPrice * 0.85)));
-          const median = Number(platData?.median ?? (plat?.median ?? recPrice));
-          const high = Number(platData?.high ?? (plat?.high ?? Math.round(recPrice * 1.15)));
-          const listings = Array.isArray(platData?.sample_listings) 
-            ? platData.sample_listings 
-            : (Array.isArray(plat?.sample_listings) ? plat.sample_listings : []);
-          const platName = plat?.name || `Marketplace ${idx + 1}`;
-
-          return (
-            <div key={platName || idx} className="pw-card">
-              <div className="flex justify-between items-center mb-2.5">
-                <span className="font-display font-semibold text-ink text-sm">{platName}</span>
-                <span className="text-xs font-semibold text-snap bg-snap/10 px-2 py-0.5 rounded border border-snap/20">
-                  {formatCurrency(median)} avg
-                </span>
-              </div>
-              
-              <div className="flex justify-between text-xs text-ink-dim mb-2">
-                <span>Low: <span className="font-semibold text-ink">{formatCurrency(low)}</span></span>
-                <span>High: <span className="font-semibold text-ink">{formatCurrency(high)}</span></span>
-              </div>
-              
-              <div className="h-1.5 w-full bg-surface rounded-full overflow-hidden relative">
-                <div className="absolute inset-y-0 left-1/4 right-1/4 bg-snap/25 rounded-full" />
-                <div className="absolute inset-y-0 left-[48%] w-1.5 bg-snap rounded-full" />
-              </div>
-              
-              {listings.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-surface flex gap-2 overflow-x-auto hide-scrollbar">
-                  {listings.map((url: string, i: number) => (
-                    <a 
-                      key={i} 
-                      href={typeof url === 'string' && url.startsWith('http') ? url : '#'} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="shrink-0 flex items-center gap-1 text-[10px] font-mono uppercase bg-surface hover:bg-surface/80 text-ink-dim px-2 py-1 rounded transition-colors"
-                    >
-                      Listing {i + 1} <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </motion.div>}
-
-      {/* Verified Evidence Sources from Engine */}
-      {evidenceSources.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.28 }}
-          className="pw-card mb-4"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-display font-semibold uppercase tracking-wider text-ink-faint flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-lime" />
-              <span>Verified Market Evidence ({evidenceSources.length})</span>
-            </span>
-            <span className="text-[10px] font-mono text-ink-faint">NZD Normalized</span>
-          </div>
-
-          <div className="space-y-2">
-            {evidenceSources.slice(0, 5).map((ev: any, idx: number) => (
-              <div key={ev.id || idx} className="p-2.5 rounded-xl bg-surface/40 border border-surface flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-snap/10 text-snap font-semibold">
-                      {ev.platform}
-                    </span>
-                    {ev.condition && (
-                      <span className="text-[9px] font-mono text-ink-faint truncate">
-                        • {ev.condition}
-                      </span>
-                    )}
-                  </div>
-                  <p className="font-medium text-ink truncate text-[11px]">{ev.title}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="font-mono font-bold text-ink text-xs">{formatCurrency(ev.priceNZD || ev.price)}</span>
-                  {ev.url && ev.url.startsWith('http') && (
-                    <a href={ev.url} target="_blank" rel="noopener noreferrer" className="block text-[10px] text-snap hover:underline">
-                      View ↗
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* JSON Debug Inspector Drawer */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.32 }}
-        className="pw-card mb-4"
-      >
-        <button 
-          onClick={() => setShowJson(!showJson)}
-          className="w-full flex items-center justify-between text-xs font-mono text-ink-faint hover:text-ink transition-colors py-1"
-        >
-          <span className="flex items-center gap-1.5">
-            <Code className="w-3.5 h-3.5" />
-            <span>Server Valuation Payload (v{engineVersion})</span>
-          </span>
-          {showJson ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-
-        {showJson && (
-          <div className="mt-3 pt-3 border-t border-surface">
-            <pre className="text-[11px] font-mono bg-navy-900 text-emerald-400 p-3 rounded-lg overflow-x-auto max-h-60 overflow-y-auto border border-surface">
-              {JSON.stringify(currentScan, null, 2)}
-            </pre>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Action Buttons */}
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-navy-950/90 backdrop-blur-md border-t border-surface flex gap-3 z-40">
-        <button 
-          onClick={handleScanAgain}
-          className="flex-1 pw-btn-outline py-3 flex items-center justify-center gap-2 text-sm font-medium"
-        >
-          <RefreshCcw className="w-4 h-4" />
-          Scan Again
-        </button>
-        <button 
-          onClick={handleSave}
-          className="flex-1 pw-btn py-3 flex items-center justify-center gap-2 text-sm font-medium"
-        >
-          <Bookmark className="w-4 h-4" />
-          Save Result
-        </button>
+  const { product, valuation, confidence, evidence, market, grounding } = currentScan;
+  const priced = currentScan.status === 'success';
+  return <div className="w-full h-full flex flex-col bg-navy-950 overflow-y-auto pt-20 pb-28 px-4">
+    <div className="pw-card mb-4 flex items-start gap-3">
+      <Box className="w-8 h-8 text-snap shrink-0" />
+      <div className="min-w-0"><h2 className="font-display font-semibold text-lg text-ink">{product.name}</h2>
+        <p className="text-xs text-ink-dim">{product.brand} · {product.category}</p>
       </div>
-
-      {/* Confidence Score Explanation Modal */}
-      {showConfidenceModal && (
-        <div className="fixed inset-0 z-50 bg-navy-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-sm bg-navy-900 border border-surface rounded-2xl p-6 shadow-2xl relative"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold font-mono text-sm ${
-                confidenceColor === 'green' ? 'bg-lime/10 text-lime border border-lime/30' : confidenceColor === 'orange' ? 'bg-amber/10 text-amber border border-amber/30' : 'bg-rose-400/10 text-rose-400 border border-rose-400/30'
-              }`}>
-                {confidencePct}%
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-base text-ink">AI Confidence Score</h3>
-                <p className="text-xs text-ink-faint">Multi-Factor Valuation Reliability</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-ink-dim leading-relaxed mb-4">
-              Calculated on the server using 4 objective factors: visual model certainty, sample volume of active NZ listings, price cluster dispersion, and marketplace source reliability.
-            </p>
-
-            {confidence.factors && (
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-surface/50 p-2 rounded-lg border border-surface">
-                  <span className="text-[10px] text-ink-faint block">Visual ID Match</span>
-                  <span className="text-xs font-mono font-bold text-ink">{Math.round((confidence.factors.identification || 0.9) * 100)}%</span>
-                </div>
-                <div className="bg-surface/50 p-2 rounded-lg border border-surface">
-                  <span className="text-[10px] text-ink-faint block">Sample Volume</span>
-                  <span className="text-xs font-mono font-bold text-ink">{Math.round((confidence.factors.sampleSize || 0.8) * 100)}%</span>
-                </div>
-                <div className="bg-surface/50 p-2 rounded-lg border border-surface">
-                  <span className="text-[10px] text-ink-faint block">Price Consistency</span>
-                  <span className="text-xs font-mono font-bold text-ink">{Math.round((confidence.factors.priceSpread || 0.85) * 100)}%</span>
-                </div>
-                <div className="bg-surface/50 p-2 rounded-lg border border-surface">
-                  <span className="text-[10px] text-ink-faint block">Source Quality</span>
-                  <span className="text-xs font-mono font-bold text-ink">{Math.round((confidence.factors.sourceReliability || 0.9) * 100)}%</span>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2 mb-5">
-              {confidence.reasons && confidence.reasons.length > 0 ? (
-                confidence.reasons.map((r: string, i: number) => (
-                  <div key={i} className="flex items-start gap-2 text-[11px] text-ink-dim">
-                    <span className="text-snap font-bold">✓</span>
-                    <span>{r}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex items-start gap-2 text-[11px] text-ink-dim">
-                  <span className="text-snap font-bold">✓</span>
-                  <span>Cross-referenced against current Trade Me and Facebook Marketplace sales data.</span>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                triggerHaptic();
-                setShowConfidenceModal(false);
-              }}
-              className="w-full py-3 bg-snap hover:bg-snap/90 text-navy-950 font-display font-semibold text-xs rounded-xl transition-all shadow-md"
-            >
-              Close
-            </button>
-          </motion.div>
-        </div>
-      )}
     </div>
-  );
+    <div className="pw-card mb-4">
+      <h3 className="font-semibold text-ink mb-2">Visible condition: {product.condition_grade} · {product.condition_score}/10</h3>
+      <p className="text-sm text-ink-dim">{product.summary}</p>
+      {product.defects.length > 0 && <ul className="list-disc pl-5 mt-2 text-xs text-ink-dim">{product.defects.map((defect, i) => <li key={i}>{defect}</li>)}</ul>}
+      <p className="text-xs text-ink-faint mt-3">Photo assessment only. Functionality and hidden specifications are unverified.</p>
+    </div>
+    {priced ? <div className="pw-card mb-4 border-snap/30 bg-snap/5">
+      <p className="text-sm text-snap">Estimated resale value</p>
+      <p className="font-display text-4xl font-bold text-snap my-2">{formatCurrency(valuation.estimatedValue)} <span className="text-base">NZD</span></p>
+      <p className="text-sm text-ink-dim">Range: {formatCurrency(valuation.lowEstimate)}–{formatCurrency(valuation.highEstimate)} NZD</p>
+      <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+        {[['Quick sale', valuation.quickSalePrice], ['Balanced', valuation.balancedPrice], ['Higher ask', valuation.maxProfitPrice]].map(([label, price]) => <div key={label} className="rounded-lg bg-surface p-2">
+          <p className="text-[10px] text-ink-dim">{label}</p><p className="text-sm font-bold text-ink">{formatCurrency(Number(price))}</p>
+        </div>)}
+      </div><p className="text-xs text-ink-faint mt-3">Suggested asking strategies, not guaranteed sale prices.</p>
+    </div> : <div className="pw-card mb-4 border-amber/30" role="status">
+      <h3 className="text-lg font-semibold text-amber mb-2">Not enough pricing evidence</h3>
+      <p className="text-sm text-ink-dim">The item was identified, but we couldn’t support an NZD resale estimate with usable comparable listings. Try a clearer model label or another photo.</p>
+    </div>}
+    <div className="pw-card mb-4">
+      <button className="w-full text-left" aria-expanded={showReasons} onClick={() => setShowReasons(!showReasons)}>
+        <span className="text-sm text-ink font-semibold">Evidence confidence: {confidence.percentage}% · {confidence.level.toLowerCase()}</span>
+        <span className="block text-xs text-snap mt-1">{showReasons ? 'Hide explanation' : 'How was this scored?'}</span>
+      </button>
+      {showReasons && <ul className="list-disc pl-5 mt-3 text-xs text-ink-dim space-y-2">{confidence.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul>}
+    </div>
+    {priced && market.platforms.length > 0 && <div className="pw-card mb-4">
+      <h3 className="text-sm font-semibold text-ink mb-3">Observed marketplace prices</h3>
+      <div className="space-y-3">{market.platforms.map(platform => <div key={platform.name} className="flex justify-between gap-3 text-xs border-b border-surface pb-2">
+        <span className="text-ink-dim">{platform.name}</span><span className="text-ink text-right">{formatCurrency(platform.median)} median<br />{formatCurrency(platform.low)}–{formatCurrency(platform.high)}</span>
+      </div>)}</div>
+    </div>}
+    {evidence.sources.length > 0 && <div className="pw-card mb-4">
+      <h3 className="flex items-center gap-2 text-sm text-ink font-semibold mb-3"><ShieldCheck className="w-4 h-4 text-snap" />Search-supported comparables ({evidence.filteredCount})</h3>
+      <p className="text-xs text-ink-dim mb-3">Asking prices can differ from completed sales. Listings may change or expire.</p>
+      <div className="space-y-3">{evidence.sources.map(item => <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" className="block rounded-lg bg-surface p-3">
+        <span className="text-xs text-ink block">{item.title} <ExternalLink className="inline w-3 h-3" /></span>
+        <span className="text-xs text-ink-dim">{item.platform} · {item.priceType === 'sold' ? 'Reported sold' : 'Asking'} · </span><span className="text-sm font-semibold text-snap">{formatCurrency(item.priceNZD)} NZD</span>
+      </a>)}</div>
+    </div>}
+    {grounding?.searchEntryPoint && <div className="pw-card mb-4">
+      <h3 className="text-sm text-ink mb-2">Google Search suggestions</h3>
+      <iframe title="Google Search suggestions" srcDoc={grounding.searchEntryPoint} sandbox="allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" className="w-full border-0 min-h-40 bg-white rounded-lg" />
+    </div>}
+    <p className="text-xs text-ink-faint mb-4">Checked {new Date(currentScan.date).toLocaleString()}. {currentScan.warnings?.[0]}</p>
+    <div className="fixed bottom-0 inset-x-0 p-4 bg-navy-950/95 backdrop-blur-md border-t border-surface flex gap-3 z-40">
+      <button onClick={() => setScreen('scanner')} className="flex-1 pw-btn-outline py-3 flex items-center justify-center gap-2 text-sm"><RefreshCcw className="w-4 h-4" />Scan Again</button>
+      <button onClick={() => addToHistory(currentScan)} className="flex-1 pw-btn py-3 flex items-center justify-center gap-2 text-sm"><Bookmark className="w-4 h-4" />Save Result</button>
+    </div>
+  </div>;
 }

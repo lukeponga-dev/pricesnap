@@ -9,7 +9,8 @@ export function formatCurrency(value: number, currency: string = "NZD") {
   return new Intl.NumberFormat("en-NZ", {
     style: "currency",
     currency: currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 

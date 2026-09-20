@@ -1,3 +1,4 @@
+import { roundPrice } from './money';
 // =========================================================
 // Step 8: Calculate Weighted Median Base Market Price
 // =========================================================
@@ -6,10 +7,10 @@ import { CleanEvidenceItem } from '../types';
 
 export function calculateWeightedMedian(evidence: CleanEvidenceItem[]): number {
   const validItems = evidence.filter(e => !e.isOutlier);
-  const itemsToUse = validItems.length > 0 ? validItems : evidence;
+  const itemsToUse = validItems;
 
   if (itemsToUse.length === 0) {
-    return 100; // default fallback
+    return 0; // No price without evidence
   }
 
   if (itemsToUse.length === 1) {
@@ -28,15 +29,15 @@ export function calculateWeightedMedian(evidence: CleanEvidenceItem[]): number {
     if (cumulativeWeight >= halfWeight) {
       // If exactly at boundary and not last item, average with next
       if (cumulativeWeight === halfWeight && i < sorted.length - 1) {
-        return Math.round((sorted[i].priceNZD + sorted[i + 1].priceNZD) / 2);
+        return roundPrice((sorted[i].priceNZD + sorted[i + 1].priceNZD) / 2);
       }
-      return Math.round(sorted[i].priceNZD);
+      return roundPrice(sorted[i].priceNZD);
     }
   }
 
   // Fallback to simple median
   const mid = Math.floor(sorted.length / 2);
-  return Math.round(
+  return roundPrice(
     sorted.length % 2 === 0
       ? (sorted[mid - 1].priceNZD + sorted[mid].priceNZD) / 2
       : sorted[mid].priceNZD

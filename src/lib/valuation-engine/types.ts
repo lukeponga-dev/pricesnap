@@ -6,7 +6,7 @@ export type ConditionGrade = 'A+' | 'A' | 'A-' | 'B' | 'C' | 'D';
 
 export type MarketplacePlatform = 'Trade Me' | 'Facebook Marketplace' | 'eBay' | 'Other NZ Retailer';
 
-export type MarketTrend = 'rising' | 'stable' | 'falling';
+export type MarketTrend = 'rising' | 'stable' | 'falling' | 'unknown';
 
 export interface IdentifiedProduct {
   name: string;
@@ -42,6 +42,9 @@ export interface RawEvidenceListing {
   snippet?: string;
   conditionMentioned?: string;
   dateMentioned?: string;
+  priceType?: 'asking' | 'sold' | 'retail';
+  groundingUrl?: string;
+  retrievedAt?: string;
 }
 
 export interface CleanEvidenceItem {
@@ -54,6 +57,9 @@ export interface CleanEvidenceItem {
   platform: MarketplacePlatform;
   url: string;
   condition?: string;
+  priceType?: 'asking' | 'sold' | 'retail';
+  groundingUrl?: string;
+  retrievedAt?: string;
   relevanceScore: number; // 0.0 to 1.0
   isOutlier: boolean;
   weight: number;
@@ -67,14 +73,14 @@ export interface PlatformPriceSummary {
 }
 
 export interface ValuationOutput {
-  estimatedValue: number;
-  lowEstimate: number;
-  highEstimate: number;
+  estimatedValue: number | null;
+  lowEstimate: number | null;
+  highEstimate: number | null;
   currency: 'NZD';
-  recommendedResalePrice: number;
-  quickSalePrice: number;
-  balancedPrice: number;
-  maxProfitPrice: number;
+  recommendedResalePrice: number | null;
+  quickSalePrice: number | null;
+  balancedPrice: number | null;
+  maxProfitPrice: number | null;
 }
 
 export interface ConfidenceOutput {
@@ -113,6 +119,8 @@ export interface ValuationResult {
   id: string;
   date: string;
   isMock?: boolean;
+  warnings?: string[];
+  grounding?: { sources: Array<{title: string; url: string}>; searchEntryPoint?: string };
   product: IdentifiedProduct;
   valuation: ValuationOutput;
   confidence: ConfidenceOutput;
@@ -123,15 +131,17 @@ export interface ValuationResult {
   };
   market: MarketOutput;
   pricing_guide: {
-    quick_sale_price: number;
-    balanced_price: number;
-    max_profit_price: number;
+    quick_sale_price: number | null;
+    balanced_price: number | null;
+    max_profit_price: number | null;
   };
   meta: {
     engineVersion: string;
     timestamp: string;
     analysisId: string;
     executionTimeMs?: number;
+    model?: string;
+    pricingBasis?: string;
   };
 
   // Backward-compatibility accessors for existing UI components
@@ -149,4 +159,10 @@ export interface ValuationResult {
     high?: number;
     data?: PlatformPriceSummary;
   }>;
+}
+
+export type ValuationStage = 'identifying' | 'searching' | 'calculating';
+export interface EngineOptions {
+  signal?: AbortSignal;
+  onProgress?: (stage: ValuationStage) => void;
 }

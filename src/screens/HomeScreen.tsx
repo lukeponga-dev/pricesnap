@@ -4,7 +4,7 @@ import { Camera, Sparkles, ClipboardList, BookOpen, TrendingUp, ChevronRight } f
 import { formatCurrency } from '../utils';
 
 export default function HomeScreen() {
-  const { setScreen, history } = useAppState();
+  const { setScreen, history, openSavedScan } = useAppState();
 
   return (
     <div className="w-full h-full flex flex-col pt-20 pb-24 px-4 overflow-y-auto bg-navy-950">
@@ -39,36 +39,6 @@ export default function HomeScreen() {
           <Camera className="w-6 h-6" />
           Scan Item
         </button>
-      </motion.div>
-
-      {/* Pitch Deck Entry Card */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.15 }}
-        className="mb-8"
-      >
-        <div 
-          onClick={() => setScreen('pitch')}
-          className="pw-card relative overflow-hidden p-4 flex items-center gap-4 border border-snap/30 bg-navy-900/60 hover:bg-navy-900 transition-all cursor-pointer group hover:border-snap/50 active:scale-[0.99]"
-        >
-          {/* Subtle gradient light background */}
-          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-snap/5 to-transparent pointer-events-none" />
-          
-          <div className="w-10 h-10 rounded-xl bg-snap/10 text-snap flex items-center justify-center border border-snap/20 group-hover:scale-105 transition-transform shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <h3 className="font-display font-semibold text-sm text-ink group-hover:text-snap transition-colors">Venture Pitch Deck</h3>
-              <span className="text-[8px] uppercase tracking-widest font-mono text-snap bg-snap/10 px-1.5 py-0.2 rounded border border-snap/20">LIVE</span>
-            </div>
-            <p className="text-xs text-ink-dim leading-snug">See our business model, market opportunity & traction metrics.</p>
-          </div>
-          
-          <ChevronRight className="w-4 h-4 text-ink-faint group-hover:text-snap group-hover:translate-x-0.5 transition-all shrink-0" />
-        </div>
       </motion.div>
 
       {/* Quick Stats or Tips Panel */}
@@ -134,7 +104,7 @@ export default function HomeScreen() {
                   <div 
                     key={idx}
                     onClick={() => {
-                      setScreen('history');
+                      openSavedScan(scan);
                     }}
                     className="pw-card flex items-center gap-3 p-3 cursor-pointer hover:bg-navy-800/50 transition-colors"
                   >
@@ -145,7 +115,7 @@ export default function HomeScreen() {
                     </div>
                     <div className="text-right">
                       <span className="font-display font-bold text-sm text-snap">
-                        {formatCurrency(price)}
+                        {scan.status === 'success' ? formatCurrency(price) : 'Not enough evidence'}
                       </span>
                     </div>
                   </div>
@@ -165,11 +135,11 @@ export default function HomeScreen() {
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-snap/10 text-snap flex items-center justify-center font-bold border border-snap/20">2</span>
-                <span>Our AI parses visual signatures to map it directly against sold comparables and live listings.</span>
+                <span>Our AI identifies the item and searches publicly indexed comparable listings.</span>
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-snap/10 text-snap flex items-center justify-center font-bold border border-snap/20">3</span>
-                <span>Instantly review dynamic valuation ranges, sold comps, and appraisal confidence.</span>
+                <span>Review an NZD estimate, source links and evidence confidence when enough evidence is available.</span>
               </li>
             </ol>
           </div>

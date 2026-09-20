@@ -14,16 +14,18 @@ export function removeOutliers(evidence: CleanEvidenceItem[]): CleanEvidenceItem
     .map(e => e.priceNZD)
     .sort((a, b) => a - b);
 
-  const n = sortedPrices.length;
-  const q1Index = Math.floor(n * 0.25);
-  const q3Index = Math.floor(n * 0.75);
-
-  const q1 = sortedPrices[q1Index];
-  const q3 = sortedPrices[q3Index];
+  const median = (values: number[]) => {
+    const mid = Math.floor(values.length / 2);
+    return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+  };
+  const middle = median(sortedPrices);
+  const mad = median(sortedPrices.map(p => Math.abs(p - middle)).sort((a, b) => a - b));
+  const q1 = middle - Math.max(mad, middle * 0.15);
+  const q3 = middle + Math.max(mad, middle * 0.15);
   const iqr = q3 - q1;
 
   // Interquartile bounds with minimum reasonable envelope
-  const lowerBound = Math.max(5, q1 - 1.5 * iqr);
+  const lowerBound = Math.max(0, q1 - 1.5 * iqr);
   const upperBound = q3 + 1.5 * iqr;
 
   return evidence.map(item => {

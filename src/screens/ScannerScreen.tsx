@@ -1,26 +1,27 @@
 import { motion } from 'motion/react';
 import { useAppState } from '../store';
-import { 
-  Camera, 
-  CameraOff, 
-  UploadCloud, 
-  Image as ImageIcon, 
-  RefreshCw, 
-  Sparkles, 
+import {
+  Camera,
+  CameraOff,
+  UploadCloud,
+  Image as ImageIcon,
+  RefreshCw,
+  Sparkles,
   SwitchCamera,
   AlertCircle,
   FileImage,
   ArrowRight
 } from 'lucide-react';
 import React, { useRef, useEffect, useState, useCallback, ChangeEvent, DragEvent } from 'react';
-import { SAMPLE_PRESETS, SampleItem } from '../sampleItems';
+import { prepareImage } from '../services/image';
 
 export default function ScannerScreen() {
-  const { startScan } = useAppState();
+  const { startScan, showToast } = useAppState();
+  const cameraGeneration = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
   const [cameraErrorMsg, setCameraErrorMsg] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
@@ -44,6 +45,7 @@ export default function ScannerScreen() {
   }, []);
 
   const setupCamera = useCallback(async (desiredFacing: 'environment' | 'user' = facingMode) => {
+    const generation = ++cameraGeneration.current;
     setIsInitializing(true);
     stopStream();
 
@@ -64,6 +66,7 @@ export default function ScannerScreen() {
         // ignore enumeration issues
       }
 
+      if (generation !== cameraGeneration.current) return;
       let stream: MediaStream | null = null;
 
       // Attempt 1: Ideal facingMode
@@ -88,12 +91,14 @@ export default function ScannerScreen() {
         }
       }
 
+      if (generation !== cameraGeneration.current) { stream?.getTracks().forEach(track => track.stop()); return; }
       if (stream && videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
         setHasCamera(true);
         setCameraErrorMsg('');
       } else {
+        stream?.getTracks().forEach(track => track.stop());
         setHasCamera(false);
         setCameraErrorMsg('No video feed could be initialized.');
       }
@@ -103,7 +108,7 @@ export default function ScannerScreen() {
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
         setCameraErrorMsg('Camera permission was denied. Please allow camera access in browser settings or upload a photo.');
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') {
-        setCameraErrorMsg('No physical camera device was found. You can upload an image or choose a preset below.');
+        setCameraErrorMsg('No physical camera device was found. You can upload a photo instead.');
       } else {
         setCameraErrorMsg(err?.message || 'Unable to access camera on this device.');
       }
@@ -115,6 +120,7 @@ export default function ScannerScreen() {
   useEffect(() => {
     setupCamera(facingMode);
     return () => {
+      cameraGeneration.current++;
       stopStream();
     };
   }, [setupCamera, facingMode, stopStream]);
@@ -124,12 +130,14 @@ export default function ScannerScreen() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      const width = video.videoWidth || 640;
-      const height = video.videoHeight || 480;
+
+      if (!video.videoWidth || !video.videoHeight) { showToast('Wait for the camera to be ready.'); return; }
+      const scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+      const width = Math.round(video.videoWidth * scale);
+      const height = Math.round(video.videoHeight * scale);
       canvas.width = width;
       canvas.height = height;
-      
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, width, height);
@@ -144,22 +152,13 @@ export default function ScannerScreen() {
   const handleFlipCamera = () => {
     const nextMode = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(nextMode);
-    setupCamera(nextMode);
+
   };
 
   // Handle uploaded file
-  const processImageFile = (file: File) => {
-    if (!file || !file.type.startsWith('image/')) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      if (dataUrl) {
-        stopStream();
-        startScan(dataUrl);
-      }
-    };
-    reader.readAsDataURL(file);
+  const processImageFile = async (file: File) => {
+    try { const dataUrl = await prepareImage(file); stopStream(); startScan(dataUrl); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'Unable to open photo.'); }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,27 +188,22 @@ export default function ScannerScreen() {
     }
   };
 
-  const handleSampleClick = (sample: SampleItem) => {
-    stopStream();
-    startScan(sample.imageSvg);
-  };
-
   // ==========================================
   // Fallback View: Camera Unavailable / Upload
   // ==========================================
   if (hasCamera === false) {
     return (
-      <div 
+      <div
         className="w-full h-full flex flex-col bg-navy-950 overflow-y-auto pt-20 pb-28 px-4"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <input 
+        <input
           ref={fileInputRef}
-          type="file" 
-          accept="image/*" 
-          className="hidden" 
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
           onChange={handleFileInputChange}
         />
 
@@ -222,18 +216,18 @@ export default function ScannerScreen() {
             Camera Mode Inactive
           </h2>
           <p className="text-xs text-ink-dim max-w-xs leading-relaxed mb-3">
-            {cameraErrorMsg || 'No active camera stream detected. Choose an image file or test with sample items below.'}
+            {cameraErrorMsg || 'No active camera stream detected. Choose an image file to scan.'}
           </p>
-          
+
           <div className="flex gap-2 w-full max-w-xs">
-            <button 
+            <button
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 pw-btn py-2.5 text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
             >
               <UploadCloud className="w-4 h-4" />
               Upload Image
             </button>
-            <button 
+            <button
               onClick={() => setupCamera(facingMode)}
               className="px-3 py-2.5 rounded-btn bg-navy-800 hover:bg-navy-750 text-ink border border-surface text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Retry camera detection"
@@ -245,11 +239,11 @@ export default function ScannerScreen() {
         </div>
 
         {/* Drag and Drop Zone */}
-        <div 
+        <div
           onClick={() => fileInputRef.current?.click()}
           className={`pw-card border-2 border-dashed transition-all p-6 text-center mb-5 cursor-pointer flex flex-col items-center justify-center ${
-            isDragging 
-              ? 'border-snap bg-snap/10 scale-[1.01]' 
+            isDragging
+              ? 'border-snap bg-snap/10 scale-[1.01]'
               : 'border-surface bg-navy-900/50 hover:border-snap/50 hover:bg-navy-900'
           }`}
         >
@@ -264,50 +258,7 @@ export default function ScannerScreen() {
           </p>
         </div>
 
-        {/* Quick Sample Presets */}
-        <div className="mb-2">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-snap" />
-              <h3 className="font-display font-semibold text-xs text-ink uppercase tracking-wider">
-                Instant Demo Presets
-              </h3>
-            </div>
-            <span className="text-[11px] text-ink-faint">One-tap scan</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {SAMPLE_PRESETS.map((sample) => (
-              <div
-                key={sample.id}
-                onClick={() => handleSampleClick(sample)}
-                className="pw-card p-3 flex flex-col justify-between hover:border-snap/40 bg-navy-900 hover:bg-navy-800/80 transition-all cursor-pointer group active:scale-[0.98]"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl">{sample.icon}</span>
-                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-snap/10 text-snap border border-snap/20">
-                      {sample.badge}
-                    </span>
-                  </div>
-                  <h4 className="font-display font-semibold text-xs text-ink line-clamp-1 group-hover:text-snap transition-colors">
-                    {sample.name}
-                  </h4>
-                  <p className="text-[11px] text-ink-dim line-clamp-1 mt-0.5">
-                    {sample.category}
-                  </p>
-                </div>
-
-                <div className="mt-2.5 pt-2 border-t border-surface flex items-center justify-between text-xs">
-                  <span className="font-bold text-snap font-display">
-                    NZ${sample.estimatedNZD}
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-snap group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <p className="text-xs text-ink-dim text-center">Use a clear photo of one item. Include the model label where possible. A network connection is required.</p>
       </div>
     );
   }
@@ -316,27 +267,27 @@ export default function ScannerScreen() {
   // Active Camera View
   // ==========================================
   return (
-    <div 
+    <div
       className="w-full h-full flex flex-col bg-black overflow-hidden relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <input 
+      <input
         ref={fileInputRef}
-        type="file" 
-        accept="image/*" 
-        className="hidden" 
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
         onChange={handleFileInputChange}
       />
 
       {/* Full-bleed camera feed */}
       <div className="absolute inset-0 w-full h-full overflow-hidden z-0 bg-black">
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          muted 
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
           className="absolute inset-0 w-full h-full object-cover"
         />
       </div>
@@ -372,7 +323,7 @@ export default function ScannerScreen() {
           <button
             onClick={() => setHasCamera(false)}
             className="px-3 py-1.5 rounded-full bg-navy-950/70 backdrop-blur-md text-white/90 border border-white/10 hover:bg-navy-900 transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
-            title="Open Demo & Upload view"
+            title="Open upload view"
           >
             <Sparkles className="w-3.5 h-3.5 text-snap" />
             <span>Presets</span>
@@ -384,13 +335,13 @@ export default function ScannerScreen() {
       <div className="flex-1 relative flex items-center justify-center p-6 z-10 pointer-events-none mt-16 mb-40">
         {/* VIEW FINDER BOX (1:1 Aspect Ratio) */}
         <div className="w-64 h-64 sm:w-72 sm:h-72 relative rounded-2xl shadow-[0_0_0_9999px_rgba(11,15,25,0.65)] border border-white/20 overflow-hidden">
-          
+
           {/* Corner brackets in Emerald */}
           <div className="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-snap rounded-tl-lg z-20"></div>
           <div className="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-snap rounded-tr-lg z-20"></div>
           <div className="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-snap rounded-bl-lg z-20"></div>
           <div className="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-snap rounded-br-lg z-20"></div>
-          
+
           {/* Center Crosshair HUD */}
           <div className="absolute inset-6 border border-dashed border-white/10 rounded-xl flex items-center justify-center">
             <div className="w-4 h-[1px] bg-white/30"></div>
@@ -398,14 +349,14 @@ export default function ScannerScreen() {
           </div>
 
           {/* Smooth animated scan line gradient */}
-          <motion.div 
+          <motion.div
             className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-snap to-transparent shadow-[0_0_15px_3px_rgba(16,185,129,0.7)] z-20"
             animate={{ top: ['5%', '95%', '5%'] }}
             transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
           />
         </div>
       </div>
-      
+
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Bottom Camera Controls Bar */}
@@ -424,12 +375,12 @@ export default function ScannerScreen() {
         </button>
 
         {/* Shutter Button */}
-        <button 
+        <button
           onClick={handleCapture}
           className="w-20 h-20 rounded-full border-4 border-white/40 p-1 flex items-center justify-center group focus:outline-none focus:ring-4 focus:ring-snap/50 cursor-pointer shadow-2xl"
           aria-label="Capture photo"
         >
-          <motion.div 
+          <motion.div
             className="w-full h-full bg-white rounded-full flex items-center justify-center group-hover:bg-slate-200 transition-colors"
             whileHover={{ scale: 0.95 }}
             whileTap={{ scale: 0.85 }}
@@ -451,7 +402,7 @@ export default function ScannerScreen() {
           <span className="text-[11px] font-medium">Presets</span>
         </button>
       </div>
-      
+
       <div className="absolute top-28 left-0 right-0 text-center pointer-events-none z-20">
         <p className="text-white/90 font-display font-medium text-xs drop-shadow-md bg-black/40 px-3 py-1 rounded-full inline-block backdrop-blur-sm border border-white/10">
           Center item in frame or drop photo
