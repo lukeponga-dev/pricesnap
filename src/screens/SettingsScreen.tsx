@@ -125,7 +125,7 @@ export default function SettingsScreen() {
             </div>
             <div>
               <h3 className="font-display font-semibold text-ink text-sm">Install App</h3>
-              <p className="text-xs text-ink-dim mt-0.5">Add to home screen for offline scans.</p>
+              <p className="text-xs text-ink-dim mt-0.5">Add to home screen. Scanning requires internet.</p>
             </div>
           </div>
           <div className="shrink-0">
@@ -163,7 +163,7 @@ export default function SettingsScreen() {
         <p className="text-xs text-ink-dim mb-3 leading-relaxed">
           PriceSnap is an AI-powered price scanner built for op shop staff and individuals to value thrift finds, resale items, clothing, sneakers, collectibles, and secondhand goods in seconds.
         </p>
-        <div className="text-[11px] text-ink-faint font-mono">Version 1.0.0 • NZ Market Calibrated</div>
+        <div className="text-[11px] text-ink-faint font-mono">Valuation MVP • NZD comparables</div>
       </div>
     </div>
   );

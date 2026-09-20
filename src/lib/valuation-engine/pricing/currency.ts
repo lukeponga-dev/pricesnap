@@ -1,22 +1,6 @@
-// =========================================================
-// Step 6: Normalize Foreign Currencies into NZD
-// =========================================================
-
 import { CleanEvidenceItem } from '../types';
-import { EXCHANGE_RATES_TO_NZD } from '../config';
-
+// No silent static FX conversion. Foreign/unknown currencies are excluded.
 export function normalizeCurrency(evidence: CleanEvidenceItem[]): CleanEvidenceItem[] {
-  return evidence.map(item => {
-    const curr = (item.originalCurrency || 'NZD').toUpperCase().trim();
-    const rate = EXCHANGE_RATES_TO_NZD[curr] || 1.0;
-    
-    // Convert price to NZD
-    const priceNZD = Math.round(item.originalPrice * rate);
-
-    return {
-      ...item,
-      priceNZD: Math.max(1, priceNZD),
-      price: Math.max(1, priceNZD) // Unified working price
-    };
-  });
+  return evidence.filter(item => item.originalCurrency === 'NZD' && Number.isFinite(item.originalPrice) && item.originalPrice > 0)
+    .map(item => ({ ...item, priceNZD: item.originalPrice, price: item.originalPrice }));
 }

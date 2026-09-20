@@ -1,65 +1,22 @@
-// =========================================================
-// Step 4: Score Relevance of Evidence Listings
-// =========================================================
-
 import { IdentifiedProduct, CleanEvidenceItem } from '../types';
 
-export function scoreRelevance(
-  product: IdentifiedProduct,
-  evidence: CleanEvidenceItem[]
-): CleanEvidenceItem[] {
-  const brandLower = product.brand.toLowerCase();
-  const nameTokens = product.name
-    .toLowerCase()
-    .replace(/[()[\]",]/g, '')
-    .split(/\s+/)
-    .filter(t => t.length > 2 && t !== 'the' && t !== 'and' && t !== 'for');
+const tokens = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(/\s+/).filter(Boolean);
+const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  const accessoryKeywords = [
-    'case only', 'box only', 'cover only', 'cable', 'charger', 'strap only',
-    'replacement parts', 'for parts', 'broken', 'repair', 'earpads only',
-    'dock only', 'power cord', 'manual', 'poster', 'keychain'
-  ];
-
+export function scoreRelevance(product: IdentifiedProduct, evidence: CleanEvidenceItem[]): CleanEvidenceItem[] {
+  const name = tokens(product.name).filter(t => !['the', 'and', 'for', 'with'].includes(t));
+  // Model numbers and storage capacity are required when actually identified.
+  const identifiers = name.filter(t => /\d/.test(t));
   return evidence.map(item => {
-    const titleLower = item.title.toLowerCase();
-    let score = 0.5; // Baseline score
-
-    // 1. Brand match
-    if (brandLower && brandLower !== 'generic / unbranded' && titleLower.includes(brandLower)) {
-      score += 0.2;
-    }
-
-    // 2. Token overlap match
-    let matchCount = 0;
-    for (const token of nameTokens) {
-      if (titleLower.includes(token)) {
-        matchCount++;
-      }
-    }
-    const tokenRatio = nameTokens.length > 0 ? matchCount / nameTokens.length : 0.5;
-    score += tokenRatio * 0.3;
-
-    // 3. Accessory / Junk Penalty (if the main item is not just an accessory)
-    const isMainProductAccessory = product.category.toLowerCase().includes('accessory') ||
-                                   product.name.toLowerCase().includes('case');
-    if (!isMainProductAccessory) {
-      for (const kw of accessoryKeywords) {
-        if (titleLower.includes(kw)) {
-          score -= 0.55; // severe penalty
-          break;
-        }
-      }
-    }
-
-    // Clamp score between 0.05 and 1.0
-    const finalScore = Math.max(0.05, Math.min(1.0, score));
-
-    // Update weight combined with relevance
-    return {
-      ...item,
-      relevanceScore: Number(finalScore.toFixed(3)),
-      weight: Number((item.weight * finalScore).toFixed(3))
-    };
+    const title = tokens(item.title);
+    const titleCompact = compact(item.title);
+    const matches = name.filter(t => title.includes(t)).length;
+    const brandMatch = !product.brand || /generic|unknown|unbranded/i.test(product.brand) || titleCompact.includes(compact(product.brand));
+    const modelMatch = identifiers.every(t => title.includes(t) || (t.length >= 4 && titleCompact.includes(t)));
+    const accessory = /\b(case|cover|cable|charger|earpads|strap|screen protector|replacement|box only|for parts|broken|repair|bundle|lot of)\b/i;
+    const extraVariant = ['pro', 'max', 'mini', 'ultra', 'plus', 'oled', 'lite'].some(t => title.includes(t) && !name.includes(t));
+    const mismatch = extraVariant || accessory.test(item.title) && !accessory.test(product.name);
+    const score = brandMatch && modelMatch && !mismatch ? matches / Math.max(1, name.length) : 0;
+    return { ...item, relevanceScore: score, weight: item.weight * score };
   });
 }

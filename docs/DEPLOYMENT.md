@@ -1,64 +1,62 @@
-# PriceSnap Production Deployment Guide
+# Deployment and configuration
 
-PriceSnap is a full-stack Node.js + React application. The Express server serves both the REST API endpoints (`/api/*`) and the compiled Vite single-page frontend.
+## Required settings
 
----
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | Server Gemini credential; required for live analysis |
+| `GOOGLE_AI_STUDIO_API_KEY` | Alternative credential name; used if GEMINI_API_KEY is empty |
+| `GEMINI_MODEL` | Defaults to `gemini-3.8-flash`; must support image input and Google Search in your project |
+| `PORT` | Express port; defaults to 3000 |
+| `NODE_ENV` | `production` when serving the built app |
 
-## 1. Quick Deploy with Docker
+Never commit secrets or prefix them with `VITE_`. `.env` is loaded by the local Express entrypoint; hosted functions receive environment variables from the host. Changing hosting variables usually requires redeployment.
 
-### Build Image
+## Vercel
+
+Use Node.js 22, `npm ci`, `npm run build`, output `dist`. `vercel.json` declares the output and requests 120 seconds for both analysis endpoints. The `api/` directory supplies Node handlers with shared engine code. If your plan cannot accommodate the requested duration, reduce the request deadline and user-facing timeout consistently or use the Express deployment.
+
+Keep deployment protection enabled for a private MVP. No deployment or visibility change is performed by this code change. After deploying, check ping, health and a real photo scan in both JSON and streaming modes. Verify API routes are served as functions rather than SPA HTML. Verify progress is not buffered by an intermediate proxy.
+
+## Express / Docker / Cloud Run
+
 ```bash
-docker build -t pricesnap:latest .
+npm ci
+npm run check
+npm start
 ```
 
-### Run Container
+The browser build lives in `dist/`; the server bundle lives in `build/server.cjs`. Docker copies both and runs as the `node` user. `PORT` is respected. Do not serve `build/` as static content. The checked-in Cloud Run workflow deploys on main only and requires GCP configuration; it should not be run or merged as a substitute for reviewing the proposed changes.
+
+## Before enabling live access
+
+1. Set a valid Gemini key and confirm model/Google Search access and quota in that project.
+2. Keep the MVP private until live-provider tests pass. API key presence alone is not readiness.
+3. Test multiple known items and manually inspect linked prices/model matches. Confirm null-price and error states.
+4. Set provider spending/quota controls and hosting access/rate controls. This repository does not include distributed rate limiting or user authentication; unrestricted public exposure is outside the validated MVP scope.
+5. Check Google processing terms against the actual API/billing setup and hosting log retention. The web privacy screen describes application behaviour and links provider terms.
+
+No marketplace credentials or paid marketplace data feeds are used. Gemini/Search can still incur charges or have limited free quota. Private Facebook listings are not accessible through this engine.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Health reports `not_configured` | Set one server API key and restart/redeploy |
+| Generic provider failure | Validate key, configured model availability, provider network access |
+| HTTP 429 | Google quota/billing limits; avoid repeated automatic retries |
+| Identified but no price | Public NZD used comparables, exact model match, price-level citation coverage |
+| Upload rejected | JPEG/PNG/WebP, valid encoding/signature, 3 MB decoded limit |
+| Browser receives HTML for API | Hosting route/build configuration |
+| Scan cancelled but UI changes | Run cancellation E2E regression test |
+
+## Live smoke command
+
+After starting the configured backend, use an authorized real product photo:
+
 ```bash
-docker run -d \
-  --name pricesnap-app \
-  -p 3000:3000 \
-  -e GEMINI_API_KEY="your-gemini-api-key-here" \
-  pricesnap:latest
+npm run smoke:live -- /path/to/item.jpg
+# Or supply your private hosted API origin as the second argument.
 ```
 
-Open `http://localhost:3000` to verify.
-
----
-
-## 2. Deploying to Google Cloud Run
-
-### Option A: Via gcloud CLI
-```bash
-# Build and submit container image
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/pricesnap
-
-# Deploy to Cloud Run
-gcloud run deploy pricesnap \
-  --image gcr.io/YOUR_PROJECT_ID/pricesnap \
-  --platform managed \
-  --region asia-east1 \
-  --allow-unauthenticated \
-  --port 3000 \
-  --set-env-vars GEMINI_API_KEY="your-gemini-api-key-here"
-```
-
-### Option B: Via GitHub Actions
-Configure the secrets in your repository settings as detailed in [`docs/PIPELINE.md`](./PIPELINE.md), and push to `main` to trigger automated deployment.
-
----
-
-## 3. Production Environment Variables
-
-| Variable | Description | Required |
-|---|---|---|
-| `GEMINI_API_KEY` | Gemini API key for visual identification & appraisals | Yes (Fallback catalog used if absent) |
-| `GOOGLE_AI_STUDIO_API_KEY` | Secondary alias for `GEMINI_API_KEY` | Optional |
-| `PORT` | HTTP listener port (defaults to 3000) | Optional |
-| `NODE_ENV` | Environment state (`production` or `development`) | Recommended |
-
----
-
-## 4. Health Checks and Monitoring
-
-- **Liveness Probe**: `GET /api/ping` returns `{"status": "ok"}`
-- **Readiness Probe**: `GET /api/health` returns `{"status": "healthy", "hasApiKey": true}`
-- **Version Endpoint**: `GET /api/version` returns runtime and release info
+The command prints item, valuation, confidence and source links without printing the image or key. Exit 0 means a priced result, 2 means provider processing completed but usable evidence was insufficient, and 1 means an error. A passing call demonstrates provider connectivity; inspect the sources and repeat with known items before making accuracy claims.

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { ScanResult, Screen, ThemeMode } from './types';
-import { generateMockResult } from './mockData';
+import { analyzeImage } from './services/analyze';
+import type { ValuationStage } from './types';
 import { triggerHaptic } from './utils';
 
 interface AppStateContextType {
@@ -11,6 +12,12 @@ interface AppStateContextType {
   addToHistory: (result: ScanResult) => void;
   currentScan: ScanResult | null;
   startScan: (imageBase64: string) => void;
+  scanStage: ValuationStage | 'uploading';
+  scanError: string | null;
+  cancelScan: () => void;
+  retryScan: () => void;
+  openSavedScan: (result: ScanResult) => void;
+  clearHistory: () => void;
   toastMessage: string | null;
   showToast: (message: string) => void;
   theme: ThemeMode;
@@ -23,9 +30,19 @@ const AppStateContext = createContext<AppStateContextType | undefined>(undefined
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [screen, setScreenState] = useState<Screen>('landing');
   const [direction, setDirection] = useState(1);
-  const [history, setHistory] = useState<ScanResult[]>([]);
+  const [history, setHistory] = useState<ScanResult[]>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('pricesnap_history_v1') || '[]');
+      return Array.isArray(saved) ? saved.filter((r: any) => r?.id && r?.product?.name && r?.valuation && r?.confidence && r?.evidence && ['success', 'insufficient_evidence'].includes(r.status) && !r.isMock).slice(0, 50) : [];
+    } catch { return []; }
+  });
   const [currentScan, setCurrentScan] = useState<ScanResult | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [scanStage, setScanStage] = useState<ValuationStage | 'uploading'>('uploading');
+  const [scanError, setScanError] = useState<string | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
+  const lastImage = useRef<string | null>(null);
+  useEffect(() => () => activeRequest.current?.abort(), []);
 
   // Theme State with LocalStorage Persistence
   const [theme, setThemeState] = useState<ThemeMode>(() => {
@@ -87,6 +104,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setScreen = (newScreen: Screen) => {
+    if (newScreen !== 'analyzing') { activeRequest.current?.abort(); activeRequest.current = null; lastImage.current = null; }
     const order: Record<Screen, number> = { landing: 0, home: 1, scanner: 2, history: 3, settings: 4, analyzing: 5, result: 6, pitch: 7, privacy: 8 };
     setDirection(order[newScreen] > order[screen] ? 1 : -1);
     setScreenState(newScreen);
@@ -94,42 +112,34 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const startScan = async (imageBase64: string) => {
-    triggerHaptic();
-    setScreen('analyzing');
-    
+    activeRequest.current?.abort();
+    const controller = new AbortController(); activeRequest.current = controller;
+    lastImage.current = imageBase64;
+    setCurrentScan(null); setScanError(null); setScanStage('uploading'); setScreen('analyzing');
+    const timeout = setTimeout(() => controller.abort('timeout'), 100000);
     try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageBase64, imageUrl: imageBase64, imageBase64 })
+      const result = await analyzeImage(imageBase64, controller.signal, stage => {
+        if (activeRequest.current === controller) setScanStage(stage);
       });
-      
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.message || data?.error || 'Analysis failed');
-      }
-      
-      const appraisalData = data.appraisal ? { ...data.appraisal, ...data } : data;
-      setCurrentScan(appraisalData);
-      setScreen('result');
-
-      if (appraisalData.isMock) {
-        showToast('Demo Mode: Using benchmark appraisal data.');
-      }
-    } catch {
-      // Gracefully fall back to local appraisal engine if offline or endpoint unavailable
-      const fallbackAppraisal = generateMockResult();
-      setCurrentScan(fallbackAppraisal);
-      setScreen('result');
-      showToast('Appraisal completed using offline mode.');
-    }
+      if (activeRequest.current !== controller) return;
+      activeRequest.current = null; lastImage.current = null;
+      setCurrentScan(result); setScreen('result');
+    } catch (error) {
+      if (activeRequest.current !== controller) return;
+      setScanError(controller.signal.aborted ? 'The scan timed out. Please retry.' : (error instanceof Error ? error.message : 'Unable to analyze this photo. Check your connection and retry.'));
+    } finally { clearTimeout(timeout); }
   };
+  const cancelScan = () => { setScreen('scanner'); setScanError(null); };
+  const retryScan = () => { if (lastImage.current) void startScan(lastImage.current); };
+  const openSavedScan = (result: ScanResult) => { setCurrentScan(result); setScreen('result'); };
+  const clearHistory = () => { setHistory([]); try { localStorage.removeItem('pricesnap_history_v1'); } catch { /* storage unavailable */ } showToast('Saved results deleted'); };
 
   const addToHistory = (result: ScanResult) => {
     if (!history.find(h => h.id === result.id)) {
-      setHistory(prev => [result, ...prev]);
-      showToast('Result saved to history');
+      const updated = [result, ...history].slice(0, 50);
+      setHistory(updated);
+      try { localStorage.setItem('pricesnap_history_v1', JSON.stringify(updated)); showToast('Result saved on this device'); }
+      catch { showToast('Saved for this session only; device storage is unavailable'); }
     } else {
       showToast('Already in history');
     }
@@ -144,7 +154,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppStateContext.Provider value={{
       screen, setScreen, direction, history, addToHistory, currentScan, startScan, toastMessage, showToast,
-      theme, resolvedTheme, setTheme
+      theme, resolvedTheme, setTheme, scanStage, scanError, cancelScan, retryScan, openSavedScan, clearHistory
     }}>
       {children}
     </AppStateContext.Provider>

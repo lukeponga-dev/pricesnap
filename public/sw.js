@@ -2,14 +2,14 @@
  * PriceSnap Service Worker
  * Caching strategy:
  *   - Static assets (JS, CSS, images, fonts): Cache-First
- *   - API calls (/api/): Network-First with cache fallback
+ *   - API calls (/api/): Network only
  *   - Navigation requests: Network-First with offline fallback
  *   - Fonts: Cache-First (don't waste bandwidth refetching)
  */
 
-const STATIC_CACHE = 'pricenames-static-v3';
-const RUNTIME_CACHE = 'pricenames-runtime-v3';
-const HTML_CACHE = 'pricenames-html-v3';
+const STATIC_CACHE = 'pricesnap-static-v4';
+const RUNTIME_CACHE = 'pricesnap-runtime-v4';
+const HTML_CACHE = 'pricesnap-html-v4';
 
 // Pre-cache on install — PriceSnap shell
 const PRECACHE_URLS = [
@@ -73,9 +73,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API calls → Network-First with cache fallback
+  // API calls → Network only
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request, RUNTIME_CACHE));
+    event.respondWith(fetch(request));
     return;
   }
 

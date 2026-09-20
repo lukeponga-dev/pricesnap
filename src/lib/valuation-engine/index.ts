@@ -2,8 +2,10 @@
 // PriceSnap Unified Valuation Engine - Master Pipeline Entry
 // =========================================================
 
+import { randomUUID } from 'node:crypto';
+import { modelName } from './provider';
 import { ENGINE_VERSION, DEFAULT_CURRENCY } from './config';
-import { IdentifiedProduct, CleanEvidenceItem, ValuationResult } from './types';
+import { IdentifiedProduct, CleanEvidenceItem, ValuationResult, EngineOptions } from './types';
 import { identifyProduct } from './identification/identifyProduct';
 import { buildQueries } from './search/buildQueries';
 import { groundedSearch } from './search/groundedSearch';
@@ -15,7 +17,6 @@ import { deduplicate } from './evidence/deduplicate';
 import { normalizeCurrency } from './pricing/currency';
 import { removeOutliers } from './pricing/outliers';
 import { calculateWeightedMedian } from './pricing/weightedMedian';
-import { applyConditionAdjustment } from './pricing/condition';
 import { calculateRange } from './pricing/range';
 import { calculateConfidence } from './confidence/calculate';
 
@@ -48,24 +49,29 @@ export { calculateConfidence } from './confidence/calculate';
  * 6. Normalize NZD
  * 7. Remove outliers
  * 8. Calculate base value
- * 9. Calculate range & condition adjustment
+ * 9. Calculate range and asking strategies
  * 10. Score confidence
  */
 export async function runValuationEngine(
-  image: Buffer | string
+  image: Buffer | string,
+  options: EngineOptions = {},
+  dependencies = { identifyProduct, groundedSearch }
 ): Promise<ValuationResult> {
   const startTime = Date.now();
-  const scanId = Math.random().toString(36).substring(2, 9);
+  const scanId = randomUUID();
   const timestamp = new Date().toISOString();
 
   // 1. Identify Product & Condition
-  const product: IdentifiedProduct = await identifyProduct(image);
+  options.onProgress?.('identifying');
+  const product: IdentifiedProduct = await dependencies.identifyProduct(image, options.signal);
 
   // 2. Build Search Queries targeting NZ markets
   const queries = buildQueries(product);
 
   // 3. Perform Grounded Search (Trade Me / Facebook / eBay)
-  const searchResults = await groundedSearch(product, queries);
+  options.onProgress?.('searching');
+  const searchResults = await dependencies.groundedSearch(product, queries, options.signal);
+  options.onProgress?.('calculating');
 
   // 4. Extract Evidence
   const rawEvidence = extractEvidence(searchResults);
@@ -86,22 +92,23 @@ export async function runValuationEngine(
   evidence = normalizeCurrency(evidence);
 
   // 10. Remove Outliers via Statistical Envelope
-  evidence = removeOutliers(evidence);
+  evidence = removeOutliers(evidence).filter(item => !item.isOutlier);
 
   // Check if enough evidence exists
   if (evidence.length === 0) {
-    return createInsufficientEvidenceResult(product, scanId, timestamp, startTime);
+    const result = createInsufficientEvidenceResult(product, scanId, timestamp, startTime);
+    result.evidence.totalFound = searchResults.rawListings.length;
+    result.grounding = { sources: searchResults.groundingSources, searchEntryPoint: searchResults.searchEntryPoint };
+    result.warnings = ['No usable NZD second-hand comparables were found. Try a clearer model label or another item.'];
+    return result;
   }
 
   // Calculate Base Market Value via Weighted Median
   const marketValue = calculateWeightedMedian(evidence);
 
-  // Apply Condition Adjustment Multiplier
-  const estimatedValue = applyConditionAdjustment(
-    marketValue,
-    product.condition_grade,
-    product.condition_score
-  );
+  // Comparables are requested in similar used condition. Do not discount an
+  // already-used price a second time using an uncalibrated multiplier.
+  const estimatedValue = marketValue;
 
   // Calculate Price Range and Marketplace Spreads
   const range = calculateRange(estimatedValue, evidence);
@@ -114,6 +121,12 @@ export async function runValuationEngine(
   // Assemble Canonical Result
   const result: ValuationResult = {
     status: 'success',
+    grounding: { sources: searchResults.groundingSources, searchEntryPoint: searchResults.searchEntryPoint },
+    warnings: [
+      'Estimate based on publicly indexed listings; asking prices are not completed sales.',
+      'Cosmetic condition is assessed from the photo. Functionality and hidden specifications are unverified.',
+      'Quick-sale and higher-ask prices are suggested strategies, not observed sale outcomes.'
+    ],
     valuationEngineVersion: ENGINE_VERSION,
     id: scanId,
     date: timestamp,
@@ -144,7 +157,9 @@ export async function runValuationEngine(
       engineVersion: ENGINE_VERSION,
       timestamp,
       analysisId: scanId,
-      executionTimeMs
+      executionTimeMs,
+      model: modelName(),
+      pricingBasis: 'NZD used comparables; relevance-weighted median'
     },
 
     // Backward-compatibility aliases for existing web & mobile UI components
@@ -190,14 +205,14 @@ function createInsufficientEvidenceResult(
     date: timestamp,
     product,
     valuation: {
-      estimatedValue,
-      lowEstimate: range.low,
-      highEstimate: range.high,
+      estimatedValue: null,
+      lowEstimate: null,
+      highEstimate: null,
       currency: DEFAULT_CURRENCY,
-      recommendedResalePrice: estimatedValue,
-      quickSalePrice: range.quickSalePrice,
-      balancedPrice: range.balancedPrice,
-      maxProfitPrice: range.maxProfitPrice
+      recommendedResalePrice: null,
+      quickSalePrice: null,
+      balancedPrice: null,
+      maxProfitPrice: null
     },
     confidence,
     evidence: {
@@ -207,15 +222,16 @@ function createInsufficientEvidenceResult(
     },
     market: range.marketOutput,
     pricing_guide: {
-      quick_sale_price: range.quickSalePrice,
-      balanced_price: range.balancedPrice,
-      max_profit_price: range.maxProfitPrice
+      quick_sale_price: null,
+      balanced_price: null,
+      max_profit_price: null
     },
     meta: {
       engineVersion: ENGINE_VERSION,
       timestamp,
       analysisId: scanId,
-      executionTimeMs: Date.now() - startTime
+      executionTimeMs: Date.now() - startTime,
+      model: modelName()
     },
     item_name: product.name,
     item_category: product.category,

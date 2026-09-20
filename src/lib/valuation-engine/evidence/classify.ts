@@ -12,7 +12,7 @@ export function classifyEvidence(
     const rawPlatform = (raw.platform || '').toLowerCase();
     const url = (raw.url || '').toLowerCase();
 
-    let platform: MarketplacePlatform = 'Trade Me';
+    let platform: MarketplacePlatform = 'Other NZ Retailer';
 
     if (rawPlatform.includes('trade') || url.includes('trademe.co.nz')) {
       platform = 'Trade Me';
@@ -23,8 +23,7 @@ export function classifyEvidence(
     } else if (rawPlatform.includes('cash converters') || rawPlatform.includes('pb tech') || rawPlatform.includes('retail')) {
       platform = 'Other NZ Retailer';
     } else {
-      // Default to Trade Me for NZ context
-      platform = 'Trade Me';
+      platform = 'Other NZ Retailer';
     }
 
     const initialWeight = PLATFORM_WEIGHTS[platform] || 1.0;
@@ -34,11 +33,14 @@ export function classifyEvidence(
       title: raw.title,
       price: raw.price,
       originalPrice: raw.price,
-      originalCurrency: (raw.currency || 'NZD').toUpperCase(),
+      originalCurrency: (raw.currency || '').toUpperCase(),
       priceNZD: raw.price, // Will be converted in normalizeCurrency step
       platform,
       url: raw.url || '',
       condition: raw.conditionMentioned,
+      priceType: raw.priceType,
+      groundingUrl: raw.groundingUrl,
+      retrievedAt: raw.retrievedAt,
       relevanceScore: 1.0,
       isOutlier: false,
       weight: initialWeight

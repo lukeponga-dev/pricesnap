@@ -18,7 +18,7 @@ export function buildQueries(product: IdentifiedProduct): string[] {
     `${cleanName} Facebook Marketplace New Zealand second hand`.trim(),
     
     // Broad NZ retail / secondary benchmark
-    `${brand} ${cleanName} NZD price sold New Zealand`.trim(),
+    `${brand} ${cleanName} Google Shopping NZ used refurbished NZD`.trim(),
     
     // International / eBay comparator
     `${brand} ${cleanName} used price eBay`.trim()

@@ -1,75 +1,55 @@
-# PriceSnap System Architecture
+# PriceSnap architecture — engine 1.1.0
 
-## Overview
+## Components
 
-**PriceSnap** is an AI-powered visual appraisal and valuation engine tailored for the New Zealand secondhand and resale marketplace (Trade Me, Facebook Marketplace, and eBay). It couples multimodal vision analysis via Google Gemini (`models/gemini-3.6-flash`) with a deterministic benchmark fallback catalog, robust JSON sanitization, and defensive data normalization.
+| Component | Responsibility |
+|---|---|
+| React/Vite PWA | Capture/upload, display progress and results, save locally |
+| `src/services/image.ts` | Resize uploaded images, JPEG encoding, client size/type feedback |
+| `src/services/analyze.ts` | Single-image request, JSON/NDJSON response parsing |
+| `src/store.tsx` | Navigation, cancellation, retry, saved history, theme |
+| `server/analyze.ts` | Shared input validation, errors, streaming, deadlines, safe logs |
+| `server/app.ts`, `server.ts` | Express routes, dev Vite middleware, production static frontend |
+| `api/*.ts` | Vercel Node request/response adapters using the same handler |
+| `src/lib/valuation-engine` | Identification, grounded evidence, deterministic valuation |
+| Google Gemini | Image identification and Google Search-grounded discovery |
 
----
-
-## High-Level Architecture Diagram
-
+```mermaid
+flowchart TD
+    A["Photo capture or upload"] --> B["Validate and prepare image"]
+    B --> C["Shared analysis handler"]
+    C --> D["Gemini identification"]
+    D --> E["Google Search grounding"]
+    E --> F["Evidence validation and pricing"]
+    F --> G{"Usable comparables?"}
+    G -->|Yes| H["NZD estimate and sources"]
+    G -->|No| I["Insufficient evidence"]
+    D -->|Failure| J["Visible error and retry"]
+    E -->|Failure| J
+    H --> K["Optional local saved result"]
+    I --> K
 ```
-[ Client Browser / PWA ]
-       │
-       │ (Base64 JPEG/PNG, max 20MB)
-       ▼
-[ Express Server (server.ts / dist/server.cjs) ]
-       │
-       ├─► 1. Ingestion Validation (format, size, null checks)
-       │
-       ├─► 2. Gemini 3.6 Flash Engine (`@google/genai`)
-       │      └─► Timeout Guard (9s) & Error Boundary
-       │
-       ├─► [Fallback Catalog] (deterministic NZ benchmark appraisal if offline)
-       │
-       ├─► 3. JSON Sanitizer (removes markdown fences, extracts outermost `{}`)
-       │
-       ├─► 4. Schema Validator & Normalizer (protects UI against undefined properties)
-       │
-       └─► 5. Response Pipeline (returns normalized PriceSnapResult)
-```
 
----
+## Request lifecycle
 
-## Core Components
+The browser sends one `image` value, requesting NDJSON. The handler validates base64, image signature, MIME and maximum size before invoking the engine. The engine emits `identifying`, `searching` and `calculating` when those stages start. These are actual stage events, not invented percentages. The final stream record contains a result or error.
 
-### 1. Ingestion Validation
-- Endpoint: `POST /api/analyze` and `POST /api/pricesnap`.
-- Enforces an explicit 20MB body limit (`express.json({ limit: "20mb" })`).
-- Validates data URI prefixes (`data:image/...`) or external HTTPS URLs.
-- Throws typed `IngestionError` with HTTP status 400 or 413 on violations.
+Clients not requesting NDJSON receive the normal JSON API. Express and Vercel use the same handler, including the `/api/pricesnap` compatibility alias. Vercel functions use the Node request/response contract, not a mixed Edge/Web Request handler.
 
-### 2. Multimodal AI Valuation Engine
-- Uses `@google/genai` with model `models/gemini-3.6-flash`.
-- Injects a strict JSON-only appraisal prompt configured for the New Zealand resale ecosystem.
-- Wraps API calls in `Promise.race` with a 9-second timeout limit to prevent hanging client connections.
+One server request has a 90-second abort deadline; SDK requests have a 45-second HTTP timeout; the browser stops waiting after 100 seconds. The Vercel functions request a 120-second platform maximum. Client disconnects propagate an abort signal. No image-bearing background job survives the request intentionally.
 
-### 3. Resilient JSON Sanitization (`sanitizeAndParseJson`)
-Large language models occasionally prefix outputs with markdown fences (e.g. ````json````) or `<think>` reasoning tags. The sanitizer:
-1. Strips all `<think>` tags and reasoning blocks.
-2. Removes markdown fences (` ```json ` and ` ``` `).
-3. Locates outermost `{` and `}` delimiters and extracts the raw JSON substring.
-4. Parses safely with `JSON.parse()`, throwing `ModelOutputError` on malformed payloads.
+## Data and security boundaries
 
-### 4. Deterministic Catalog Fallback
-When running offline, without an API key, or during network interruptions, PriceSnap gracefully falls back to a curated benchmark catalog (`CATALOG` in `server.ts`).
-- Derives a consistent pseudo-random hash from the image bytes (`simpleHash`).
-- Maps the hash to benchmarked New Zealand items (e.g. Apple iPhone 13, Sony WH-1000XM5, Nintendo Switch OLED, RM Williams Comfort Craftsman Boots, etc.).
-- Guarantees that the UI never displays broken states or unhandled exceptions.
+- API keys are read only on the server. They must never be `VITE_` variables.
+- Identification receives the image. Search receives item attributes, not the image.
+- Source URLs are not fetched by PriceSnap. Provider citation URLs must pass HTTPS validation. Links open with `noopener noreferrer`.
+- Google search-suggestion HTML is displayed inside a sandboxed iframe without script or same-origin permissions.
+- Application logs contain ID/status/error code/count/duration, never the image, API key or raw provider error text.
+- Original photos are held transiently in browser/server memory. Results are stored only after Save Result in `pricesnap_history_v1`, capped at 50. The browser also stores theme preferences.
+- Clear saved results removes local result storage. No cross-device or Google-side deletion is implied.
+- API responses use `Cache-Control: no-store`; service-worker API requests are network-only.
+- Frontend assets are in `dist/`; the server bundle is in `build/` and is not served as a public asset.
 
-### 5. Schema Normalization (`validateAndNormalizeAppraisal`)
-Guarantees consistent object contracts for the frontend:
-- Clamps condition scores within `[1, 10]`.
-- Maps numerical scores to grades (`A`, `B`, `C`, `D`).
-- Generates platform price breakdowns for Trade Me, Facebook Marketplace, and eBay.
-- Computes trend indicators (`rising`, `stable`, `falling`) and optimal resale platform recommendations.
+## Runtime boundaries
 
----
-
-## Frontend Architecture
-
-- **Framework**: React 19 + TypeScript + Vite.
-- **Styling**: Tailwind CSS v4 with custom dark aesthetic (`navy-950`, high-contrast emerald & amber accents).
-- **Navigation & State**: Centralized reactive state store (`src/store.tsx`) managing scan history, active scan, active screen (`home`, `scanner`, `analyzing`, `result`, `history`, `settings`), and camera stream state.
-- **Animations**: Fluid layout and state transitions powered by `motion` (`motion/react`).
-- **PWA & Offline Readiness**: Service worker configuration with manifest and install prompts (`PWAInstallButton.tsx`).
+The engine's dependency parameter is an internal test seam. Production routes always use Gemini. Fixture responses live only under `tests/`; there is no production mock flag, fixture endpoint or offline appraisal fallback. The PWA can cache its shell, but new valuations require connectivity.

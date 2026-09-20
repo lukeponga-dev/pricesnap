@@ -55,7 +55,8 @@ export function calculateConfidence(
   );
 
   const evidenceCap = sampleSize === 0 ? 0.35 : sampleSize === 1 ? 0.55 : sampleSize < 4 ? 0.75 : 0.99;
-  const score = Math.max(0.10, Math.min(evidenceCap, Number(rawScore.toFixed(3))));
+  const sourceCap = new Set(validEvidence.map(e => e.platform)).size < 2 ? 0.75 : 0.85;
+  const score = sampleSize === 0 ? 0 : Math.max(0, Math.min(evidenceCap, sourceCap, idFactor, Number(rawScore.toFixed(3))));
   const percentage = Math.round(score * 100);
 
   let level: 'HIGH' | 'MODERATE' | 'LOW' = 'HIGH';
@@ -72,7 +73,9 @@ export function calculateConfidence(
     color = 'red';
   }
 
-  const reasons: string[] = [];
+  const reasons: string[] = ['Heuristic evidence score, not a calibrated probability of an accurate sale price.'];
+  if (sampleSize > 0 && sampleSize < 4) reasons.push(`Only ${sampleSize} usable comparable(s); pricing confidence is limited.`);
+  if (validEvidence.some(e => e.priceType === 'asking')) reasons.push('Includes asking prices, which may differ from actual sale prices.');
   if (idFactor >= 0.9) {
     reasons.push(`High certainty visual match for ${product.brand} ${product.name}.`);
   }
