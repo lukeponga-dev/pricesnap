@@ -178,8 +178,8 @@ function createInsufficientEvidenceResult(
   timestamp: string,
   startTime: number
 ): ValuationResult {
-  const fallbackBase = 120;
-  const estimatedValue = applyConditionAdjustment(fallbackBase, product.condition_grade, product.condition_score);
+  // No synthetic price fallback: insufficient evidence must remain visibly unpriced.
+  const estimatedValue = 0;
   const range = calculateRange(estimatedValue, []);
   const confidence = calculateConfidence(product, []);
 
@@ -223,6 +223,6 @@ function createInsufficientEvidenceResult(
     condition_score: product.condition_score,
     condition_grade: product.condition_grade,
     defects: product.defects,
-    resale_price_nz: estimatedValue
+    resale_price_nz: undefined
   };
 }
