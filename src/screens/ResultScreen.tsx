@@ -49,27 +49,29 @@ export default function ResultScreen() {
   const conditionSummary = product.summary || currentScan.condition?.summary || `Assessed condition score: ${conditionScore}/10 (Grade ${conditionGrade})`;
 
   // 2. Canonical Valuation (Determined once on the server)
+  const hasInsufficientEvidence = anyScan.status === 'insufficient_evidence';
+  const legacyPrice = Number(anyScan.resale_price_nz ?? anyScan.market?.recommended_price ?? anyScan.price?.average ?? 0);
   const valuation = currentScan.valuation || {
-    estimatedValue: Number(anyScan.resale_price_nz || anyScan.market?.recommended_price || anyScan.price?.average || 120),
-    lowEstimate: Math.round(Number(anyScan.resale_price_nz || 120) * 0.85),
-    highEstimate: Math.round(Number(anyScan.resale_price_nz || 120) * 1.18),
+    estimatedValue: legacyPrice,
+    lowEstimate: legacyPrice > 0 ? Math.round(legacyPrice * 0.85) : 0,
+    highEstimate: legacyPrice > 0 ? Math.round(legacyPrice * 1.18) : 0,
     currency: 'NZD' as const,
-    recommendedResalePrice: Number(anyScan.resale_price_nz || anyScan.market?.recommended_price || 120),
-    quickSalePrice: Math.round(Number(anyScan.resale_price_nz || 120) * 0.86),
-    balancedPrice: Number(anyScan.resale_price_nz || 120),
-    maxProfitPrice: Math.round(Number(anyScan.resale_price_nz || 120) * 1.14)
+    recommendedResalePrice: legacyPrice,
+    quickSalePrice: legacyPrice > 0 ? Math.round(legacyPrice * 0.86) : 0,
+    balancedPrice: legacyPrice,
+    maxProfitPrice: legacyPrice > 0 ? Math.round(legacyPrice * 1.14) : 0
   };
 
-  const recPrice = valuation.recommendedResalePrice || valuation.estimatedValue;
+  const recPrice = Number(valuation.recommendedResalePrice ?? valuation.estimatedValue ?? 0);
 
   // 3. Confidence Metrics
   const confidence = currentScan.confidence || {
-    score: 0.94,
-    percentage: 94,
-    level: 'HIGH' as const,
-    color: 'green' as const,
-    reasons: ['Visual match confirmed against NZ secondary market index.'],
-    factors: { identification: 0.95, sampleSize: 0.9, priceSpread: 0.9, sourceReliability: 0.95 }
+    score: 0,
+    percentage: 0,
+    level: 'LOW' as const,
+    color: 'red' as const,
+    reasons: ['Confidence data was not returned by the valuation engine.'],
+    factors: { identification: 0, sampleSize: 0, priceSpread: 0, sourceReliability: 0 }
   };
 
   const confidencePct = typeof confidence.percentage === 'number' 
@@ -202,8 +204,24 @@ export default function ResultScreen() {
         </div>
       </motion.div>
 
+      {hasInsufficientEvidence && (
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="pw-card mb-4 border-amber/30 bg-amber/10"
+        >
+          <h3 className="font-display font-semibold text-amber text-sm">Not enough market evidence</h3>
+          <p className="text-xs text-ink-dim mt-1 leading-relaxed">
+            PriceSnap identified the item, but could not find enough trustworthy priced comparables to calculate a reliable resale value. No fallback price has been invented.
+          </p>
+          <button onClick={handleScanAgain} className="mt-3 pw-btn-outline px-4 py-2 text-xs">
+            Scan again
+          </button>
+        </motion.div>
+      )}
+
       {/* Recommended Resale Price Hero */}
-      <motion.div 
+      {!hasInsufficientEvidence && <motion.div 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.16 }}
@@ -256,10 +274,10 @@ export default function ResultScreen() {
           )}
           <span>Market trend: <span className="font-semibold text-ink capitalize">{trend}</span></span>
         </div>
-      </motion.div>
+      </motion.div>}
 
       {/* Market Platform Breakdown */}
-      <motion.div 
+      {!hasInsufficientEvidence && <motion.div 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.24 }}
@@ -317,7 +335,7 @@ export default function ResultScreen() {
             </div>
           );
         })}
-      </motion.div>
+      </motion.div>}
 
       {/* Verified Evidence Sources from Engine */}
       {evidenceSources.length > 0 && (
