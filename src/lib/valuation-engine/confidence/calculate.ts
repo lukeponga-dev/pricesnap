@@ -12,7 +12,7 @@ export function calculateConfidence(
   const sampleSize = validEvidence.length;
 
   // 1. Identification Factor (0.0 to 1.0)
-  const idFactor = product.certaintyScore || 0.90;
+  const idFactor = product.certaintyScore ?? 0.50;
 
   // 2. Sample Size Factor (0.0 to 1.0)
   // Optimal sample size is 4-8 comparable listings
@@ -24,7 +24,7 @@ export function calculateConfidence(
   else sampleFactor = 0.35;
 
   // 3. Price Spread Consistency Factor (0.0 to 1.0)
-  let spreadFactor = 0.85;
+  let spreadFactor = sampleSize >= 2 ? 0.85 : 0.35;
   if (sampleSize >= 2) {
     const prices = validEvidence.map(e => e.priceNZD).sort((a, b) => a - b);
     const minP = prices[0];
@@ -41,7 +41,7 @@ export function calculateConfidence(
   // 4. Source Reliability Factor (0.0 to 1.0)
   const hasTradeMe = validEvidence.some(e => e.platform === 'Trade Me');
   const hasFacebook = validEvidence.some(e => e.platform === 'Facebook Marketplace');
-  let sourceFactor = 0.75;
+  let sourceFactor = sampleSize === 0 ? 0.25 : 0.65;
   if (hasTradeMe && hasFacebook) sourceFactor = 0.96;
   else if (hasTradeMe) sourceFactor = 0.90;
 
@@ -54,7 +54,8 @@ export function calculateConfidence(
     sourceFactor * 0.15
   );
 
-  const score = Math.max(0.30, Math.min(0.99, Number(rawScore.toFixed(3))));
+  const evidenceCap = sampleSize === 0 ? 0.35 : sampleSize === 1 ? 0.55 : sampleSize < 4 ? 0.75 : 0.99;
+  const score = Math.max(0.10, Math.min(evidenceCap, Number(rawScore.toFixed(3))));
   const percentage = Math.round(score * 100);
 
   let level: 'HIGH' | 'MODERATE' | 'LOW' = 'HIGH';
@@ -76,13 +77,17 @@ export function calculateConfidence(
     reasons.push(`High certainty visual match for ${product.brand} ${product.name}.`);
   }
   if (sampleSize >= 3) {
-    reasons.push(`Verified against ${sampleSize} active New Zealand market comparables.`);
+    reasons.push(`Compared with ${sampleSize} relevant marketplace listings found during this scan.`);
   }
   if (spreadFactor >= 0.85) {
     reasons.push('Secondary market listing prices show tight pricing clustering.');
   }
   if (hasTradeMe) {
-    reasons.push('Anchored with local Trade Me NZ historical sales data.');
+    reasons.push('Includes Trade Me marketplace evidence.');
+  }
+
+  if (sampleSize === 0) {
+    reasons.push('No trustworthy priced marketplace comparables were found; no evidence-based valuation was produced.');
   }
 
   return {
