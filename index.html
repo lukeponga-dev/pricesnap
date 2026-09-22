@@ -19,27 +19,60 @@
     <meta name="apple-mobile-web-app-title" content="PriceSnap" />
     <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
     <meta name="application-name" content="PriceSnap" />
+    <script>
+      // Early protection: intercept cross-origin frame isolation errors in preview sandbox
+      (function() {
+        function isCrossOriginError(err) {
+          if (!err) return false;
+          var str = String(err.message || err.reason || err || '');
+          return (
+            str.indexOf("Failed to read a named property 'origin' from 'Location'") !== -1 ||
+            str.indexOf('Blocked a frame with origin') !== -1 ||
+            str.indexOf('cross-origin frame') !== -1
+          );
+        }
+
+        window.addEventListener('error', function(e) {
+          if (isCrossOriginError(e.error || e)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          if (isCrossOriginError(e.reason)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Safe Service Worker registration only in production / top-level context
-      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-        window.addEventListener('load', () => {
-          try {
-            navigator.serviceWorker
-              .register('/sw.js')
-              .then((reg) => {
-                // registered
-              })
-              .catch(() => {
-                // silently handle in preview frames
-              });
-          } catch {
-            // ignore
-          }
-        });
+      try {
+        if ('serviceWorker' in navigator && window.location && typeof window.location.protocol === 'string' && window.location.protocol.startsWith('http')) {
+          window.addEventListener('load', () => {
+            try {
+              navigator.serviceWorker
+                .register('/sw.js')
+                .then((reg) => {
+                  // registered
+                })
+                .catch(() => {
+                  // silently handle in preview frames
+                });
+            } catch {
+              // ignore
+            }
+          });
+        }
+      } catch {
+        // ignore
       }
     </script>
   </body>

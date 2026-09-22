@@ -12,6 +12,6 @@ if (!getApps().length) {
 }
 
 const adminAuth = getAuth();
-const adminDb = getFirestore();
+const adminDb = getFirestore("ai-studio-pricesnap-3d04ccf3-1cb1-4e21-a371-6c8bea97ebe8");
 
 export { adminAuth, adminDb };

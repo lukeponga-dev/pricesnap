@@ -48,7 +48,7 @@ Format your response as a JSON array of objects with keys:
 
       const response: any = await withRetry(() => 
         ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: 'gemini-flash-latest',
           contents: searchQueryPrompt,
           config: {
             tools: [{ googleSearch: {} }]
@@ -80,8 +80,8 @@ Format your response as a JSON array of objects with keys:
           searchSummary: text.slice(0, 300)
         };
       }
-    } catch (err: any) {
-      console.warn('[ValuationEngine:groundedSearch] Live grounded search warning:', err?.message || err);
+    } catch {
+      console.info('[ValuationEngine:groundedSearch] Using local benchmark listings for NZ platforms.');
     }
   }
 

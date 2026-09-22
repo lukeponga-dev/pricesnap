@@ -111,12 +111,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       await signInWithPopup(auth, provider);
       showToast('Signed in successfully');
     } catch (err: any) {
-      if (err?.code === 'auth/popup-closed-by-user') {
-        console.log('User closed the auth popup');
-        // Silent or subtle notification
+      const code = err?.code || '';
+      const msg = String(err?.message || err || '');
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/popup-blocked' ||
+        msg.includes('Blocked a frame with origin') ||
+        msg.includes('cross-origin frame')
+      ) {
+        console.info('Authentication popup closed or dismissive action taken.');
         return;
       }
-      console.error('Auth error:', err);
+      console.warn('Auth notice:', code || msg);
       showToast('Authentication failed');
     }
   };

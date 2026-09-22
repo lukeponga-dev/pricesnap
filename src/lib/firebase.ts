@@ -14,8 +14,10 @@ const firebaseConfig = {
   appId: "1:805381652466:web:686c60ab8a8860affa756b"
 };
 
+const FIRESTORE_DATABASE_ID = "ai-studio-pricesnap-3d04ccf3-1cb1-4e21-a371-6c8bea97ebe8";
+
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = getFirestore(app, FIRESTORE_DATABASE_ID);
 
-export { app, auth, db };
+export { app, auth, db, FIRESTORE_DATABASE_ID };

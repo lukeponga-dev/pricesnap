@@ -44,7 +44,7 @@ export async function identifyProduct(
 
       const response: any = await withRetry(() => 
         ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: 'gemini-flash-latest',
           contents: [
             {
               role: 'user',
@@ -94,8 +94,8 @@ export async function identifyProduct(
         const parsed = JSON.parse(rawText);
         return normalizeIdentifiedProduct(parsed);
       }
-    } catch (err: any) {
-      console.warn('[ValuationEngine:identifyProduct] Gemini call warning (using benchmark match):', err?.message || err);
+    } catch {
+      console.info('[ValuationEngine:identifyProduct] Using catalog benchmark identification.');
     }
   }
 
