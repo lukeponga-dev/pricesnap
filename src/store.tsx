@@ -2,6 +2,25 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ScanResult, Screen, ThemeMode } from './types';
 import { generateMockResult } from './mockData';
 import { triggerHaptic } from './utils';
+import { auth, db } from './lib/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut as firebaseSignOut,
+  User
+} from 'firebase/auth';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  getDocs, 
+  serverTimestamp,
+  doc,
+  setDoc
+} from 'firebase/firestore';
 
 interface AppStateContextType {
   screen: Screen;
@@ -16,6 +35,10 @@ interface AppStateContextType {
   theme: ThemeMode;
   resolvedTheme: 'light' | 'dark';
   setTheme: (theme: ThemeMode) => void;
+  user: User | null;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+  loading: boolean;
 }
 
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
@@ -26,6 +49,87 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [history, setHistory] = useState<ScanResult[]>([]);
   const [currentScan, setCurrentScan] = useState<ScanResult | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+      if (currentUser) {
+        syncUserProfile(currentUser);
+        fetchHistory(currentUser.uid);
+      } else {
+        setHistory([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const syncUserProfile = async (currentUser: User) => {
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userRef, {
+        email: currentUser.email,
+        displayName: currentUser.displayName,
+        photoURL: currentUser.photoURL,
+        lastActive: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error syncing user profile:', err);
+    }
+  };
+
+  const fetchHistory = async (uid: string) => {
+    try {
+      const scansRef = collection(db, 'scans');
+      const q = query(
+        scansRef, 
+        where('userId', '==', uid), 
+        orderBy('date', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const fetchedHistory: ScanResult[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedHistory.push({
+          ...data,
+          id: doc.id,
+          date: data.date?.toDate?.()?.toISOString() || data.date
+        } as ScanResult);
+      });
+      setHistory(fetchedHistory);
+    } catch (err) {
+      console.error('Error fetching history:', err);
+    }
+  };
+
+  const signIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      showToast('Signed in successfully');
+    } catch (err: any) {
+      if (err?.code === 'auth/popup-closed-by-user') {
+        console.log('User closed the auth popup');
+        // Silent or subtle notification
+        return;
+      }
+      console.error('Auth error:', err);
+      showToast('Authentication failed');
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      setScreenState('landing');
+      showToast('Signed out');
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+  };
 
   // Theme State with LocalStorage Persistence
   const [theme, setThemeState] = useState<ThemeMode>(() => {
@@ -111,6 +215,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }
       
       const appraisalData = data.appraisal ? { ...data.appraisal, ...data } : data;
+      
+      // Persist to Firestore if user is logged in
+      if (user) {
+        try {
+          const scanDoc = {
+            ...appraisalData,
+            userId: user.uid,
+            date: serverTimestamp(),
+            engineVersion: appraisalData.valuationEngineVersion || '1.0.0'
+          };
+          const docRef = await addDoc(collection(db, 'scans'), scanDoc);
+          appraisalData.id = docRef.id;
+          setHistory(prev => [appraisalData, ...prev]);
+        } catch (dbErr) {
+          console.error('Error saving scan to Firestore:', dbErr);
+        }
+      }
+
       setCurrentScan(appraisalData);
       setScreen('result');
 
@@ -126,12 +248,35 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addToHistory = (result: ScanResult) => {
-    if (!history.find(h => h.id === result.id)) {
-      setHistory(prev => [result, ...prev]);
-      showToast('Result saved to history');
+  const addToHistory = async (result: ScanResult) => {
+    if (user) {
+      if (history.find(h => h.id === result.id)) {
+        showToast('Already in history');
+        return;
+      }
+      // If result was mock or not yet saved (e.g. from local fallback)
+      try {
+        const scanDoc = {
+          ...result,
+          userId: user.uid,
+          date: serverTimestamp()
+        };
+        const docRef = await addDoc(collection(db, 'scans'), scanDoc);
+        result.id = docRef.id;
+        setHistory(prev => [result, ...prev]);
+        showToast('Result saved to history');
+      } catch (err) {
+        console.error('Error adding to history:', err);
+        showToast('Failed to save result');
+      }
     } else {
-      showToast('Already in history');
+      // Local only for non-logged in users (transient)
+      if (!history.find(h => h.id === result.id)) {
+        setHistory(prev => [result, ...prev]);
+        showToast('Saved locally (Sign in to sync)');
+      } else {
+        showToast('Already in history');
+      }
     }
   };
 
@@ -144,7 +289,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppStateContext.Provider value={{
       screen, setScreen, direction, history, addToHistory, currentScan, startScan, toastMessage, showToast,
-      theme, resolvedTheme, setTheme
+      theme, resolvedTheme, setTheme, user, signIn, signOut, loading
     }}>
       {children}
     </AppStateContext.Provider>

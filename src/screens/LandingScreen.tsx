@@ -24,7 +24,9 @@ import {
   Award,
   BarChart3,
   Smartphone,
-  Check
+  Check,
+  LogIn,
+  User as UserIcon
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { formatCurrency, triggerHaptic } from '../utils';
@@ -129,7 +131,7 @@ const FAQ_ITEMS = [
 ];
 
 export default function LandingScreen() {
-  const { setScreen } = useAppState();
+  const { setScreen, user, signIn, loading, resolvedTheme } = useAppState();
   const [selectedDemoIndex, setSelectedDemoIndex] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -160,11 +162,11 @@ export default function LandingScreen() {
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-navy-950 text-ink selection:bg-snap/20 overflow-x-hidden">
+    <div className="w-full min-h-screen flex flex-col bg-white dark:bg-navy-950 text-slate-900 dark:text-ink selection:bg-snap/20 overflow-x-hidden transition-colors duration-200">
       {/* ─────────────────────────────────────────────────────────── */}
       {/* 1. TOP RESPONSIVE HEADER */}
       {/* ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 w-full bg-navy-950/90 backdrop-blur-md border-b border-surface/60 transition-colors">
+      <header className="sticky top-0 z-50 w-full bg-white/90 dark:bg-navy-950/90 backdrop-blur-md border-b border-slate-200 dark:border-surface/60 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
           {/* Brand Logo & NZ Flag Badge */}
           <div className="flex items-center gap-3">
@@ -172,18 +174,18 @@ export default function LandingScreen() {
               <Logo className="w-9 h-9 sm:w-10 sm:h-10 hover:scale-105 transition-transform" />
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-display font-bold text-lg sm:text-xl tracking-tight text-ink">PriceSnap</span>
+                  <span className="font-display font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-ink">PriceSnap</span>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-snap/10 text-snap border border-snap/20">
                     NZ 🇳🇿
                   </span>
                 </div>
-                <span className="text-[10px] text-ink-faint hidden sm:inline-block">AI Resale & Op Shop Appraisals</span>
+                <span className="text-[10px] text-slate-500 dark:text-ink-faint hidden sm:inline-block">AI Resale & Op Shop Appraisals</span>
               </div>
             </div>
           </div>
 
           {/* Center Navigation Links (Desktop) */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-xs font-medium text-ink-dim">
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-xs font-medium text-slate-500 dark:text-ink-dim">
             <a href="#demo" className="hover:text-snap transition-colors">Live Demo</a>
             <a href="#how-it-works" className="hover:text-snap transition-colors">How It Works</a>
             <a href="#personas" className="hover:text-snap transition-colors">Op Shops & Resellers</a>
@@ -193,9 +195,36 @@ export default function LandingScreen() {
 
           {/* Right Action CTAs */}
           <div className="flex items-center gap-2.5 sm:gap-3">
+            {!user ? (
+              <button
+                onClick={signIn}
+                disabled={loading}
+                className="hidden sm:flex px-4 py-2 text-xs font-semibold text-slate-500 dark:text-ink-dim hover:text-slate-900 dark:hover:text-ink hover:bg-slate-100 dark:hover:bg-navy-900 rounded-xl border border-slate-200 dark:border-surface transition-all items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setScreen('settings')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-navy-900 border border-slate-200 dark:border-surface hover:border-snap/40 transition-all group"
+              >
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName || ''} className="w-6 h-6 rounded-full border border-slate-200 dark:border-surface group-hover:border-snap/40 transition-all" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-snap/10 text-snap flex items-center justify-center border border-slate-200 dark:border-surface">
+                    <UserIcon className="w-3.5 h-3.5" />
+                  </div>
+                )}
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-ink-dim group-hover:text-slate-900 dark:hover:text-ink hidden lg:block">
+                  {user.displayName?.split(' ')[0]}
+                </span>
+              </button>
+            )}
+
             <button
               onClick={handleLaunchPitch}
-              className="px-3 py-2 text-xs font-semibold text-ink-dim hover:text-ink hover:bg-navy-900 rounded-xl border border-transparent hover:border-surface transition-all flex items-center gap-1.5"
+              className="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-ink-dim hover:text-slate-900 dark:hover:text-ink hover:bg-slate-100 dark:hover:bg-navy-900 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-surface transition-all flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5 text-snap" />
               <span className="hidden sm:inline">Venture</span>

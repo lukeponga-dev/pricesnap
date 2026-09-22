@@ -2,10 +2,11 @@
 // Step 1: Product Identification using Gemini Vision AI
 // =========================================================
 
-import { GoogleGenAI, Type } from '@google/genai';
+import { Type } from '@google/genai';
 import { IdentifiedProduct } from '../types';
 import { BENCHMARK_CATALOG } from '../config';
 import { IDENTIFICATION_SYSTEM_INSTRUCTION, normalizeIdentifiedProduct } from './schema';
+import { getGeminiClient, withRetry } from '../gemini-utils';
 
 export async function identifyProduct(
   imageInput: Buffer | string
@@ -39,20 +40,9 @@ export async function identifyProduct(
   // Attempt live identification if API key is present
   if (apiKey && base64Data && base64Data.length > 50) {
     try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
-      });
+      const ai = getGeminiClient();
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Identification timed out after 8s')), 8000)
-      );
-
-      const response: any = await Promise.race([
+      const response: any = await withRetry(() => 
         ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: [
@@ -96,9 +86,8 @@ export async function identifyProduct(
               required: ['item_name', 'brand', 'category', 'condition_score', 'condition_grade', 'defects', 'summary']
             }
           }
-        }),
-        timeoutPromise
-      ]);
+        })
+      );
 
       const rawText = response.text || '';
       if (rawText) {

@@ -1,0 +1,52 @@
+{
+  "collections": {
+    "scans": {
+      "description": "Historical appraisal records for items scanned by users.",
+      "fields": {
+        "userId": { "type": "string", "description": "The UID of the user who performed the scan." },
+        "date": { "type": "timestamp", "description": "When the scan was performed." },
+        "status": { "type": "string", "description": "success, error, or insufficient_evidence" },
+        "engineVersion": { "type": "string", "description": "The version of the valuation engine used." },
+        "product": {
+          "type": "map",
+          "fields": {
+            "name": { "type": "string" },
+            "brand": { "type": "string" },
+            "category": { "type": "string" },
+            "condition_grade": { "type": "string" },
+            "condition_score": { "type": "number" }
+          }
+        },
+        "valuation": {
+          "type": "map",
+          "fields": {
+            "estimatedValue": { "type": "number" },
+            "currency": { "type": "string" }
+          }
+        },
+        "confidence": {
+          "type": "map",
+          "fields": {
+            "percentage": { "type": "number" },
+            "level": { "type": "string" }
+          }
+        },
+        "isMock": { "type": "boolean" }
+      },
+      "indexes": [
+        { "fields": { "userId": "asc", "date": "desc" } }
+      ]
+    },
+    "users": {
+      "description": "User profiles and settings.",
+      "fields": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "theme": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "lastActive": { "type": "timestamp" }
+      }
+    }
+  }
+}

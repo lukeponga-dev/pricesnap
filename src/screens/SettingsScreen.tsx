@@ -1,10 +1,26 @@
 import { useAppState } from '../store';
-import { Smartphone, Shield, FileText, ExternalLink, Home, Sun, Moon, Laptop, Palette, Check } from 'lucide-react';
+import { 
+  Smartphone, 
+  Shield, 
+  FileText, 
+  ExternalLink, 
+  Home, 
+  Sun, 
+  Moon, 
+  Laptop, 
+  Palette, 
+  Check, 
+  LogIn, 
+  LogOut, 
+  User as UserIcon,
+  Cloud,
+  History
+} from 'lucide-react';
 import { PWAInstallButton } from '../components/PWAInstallButton';
 import { ThemeMode } from '../types';
 
 export default function SettingsScreen() {
-  const { setScreen, theme, resolvedTheme, setTheme } = useAppState();
+  const { setScreen, theme, resolvedTheme, setTheme, user, signIn, signOut, loading } = useAppState();
 
   const themeOptions: { id: ThemeMode; label: string; icon: typeof Sun; desc: string }[] = [
     {
@@ -30,6 +46,65 @@ export default function SettingsScreen() {
   return (
     <div className="w-full h-full flex flex-col pt-20 pb-28 px-4 overflow-y-auto bg-navy-950 space-y-4">
       
+      {/* User Account / Sync Card */}
+      <div className="pw-card flex flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-snap/10 text-snap rounded-lg border border-snap/25">
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-display font-semibold text-ink text-sm">
+                  {user ? user.displayName : 'Account Sync'}
+                </h3>
+                {user && (
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1">
+                    <Cloud className="w-2.5 h-2.5" />
+                    Synced
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-ink-dim mt-0.5">
+                {user 
+                  ? `Logged in as ${user.email}. Your scans are synced to the cloud.`
+                  : 'Sign in to save your scan history to your account and sync across devices.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-surface flex flex-col gap-2">
+          {user ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setScreen('history')}
+                className="flex-1 py-2.5 px-4 bg-navy-900 hover:bg-navy-800 text-ink text-xs font-semibold rounded-xl border border-surface flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5 text-snap" />
+                <span>View My History</span>
+              </button>
+              <button
+                onClick={signOut}
+                className="py-2.5 px-4 bg-navy-900 hover:bg-red-500/10 text-ink hover:text-red-400 text-xs font-semibold rounded-xl border border-surface hover:border-red-500/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={signIn}
+              disabled={loading}
+              className="w-full py-3 px-4 bg-snap hover:bg-snap-dark text-white text-sm font-display font-bold rounded-xl shadow-lg shadow-snap/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign in with Google</span>
+            </button>
+          )}
+        </div>
+      </div>
       {/* Theme & Appearance Controller Card */}
       <div className="pw-card flex flex-col">
         <div className="flex items-start justify-between gap-3 mb-3.5">

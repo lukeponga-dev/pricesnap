@@ -4,7 +4,7 @@ import { Calendar, PackageOpen, ChevronRight, Box } from 'lucide-react';
 import { formatCurrency } from '../utils';
 
 export default function HistoryScreen() {
-  const { history, setScreen } = useAppState();
+  const { history, setScreen, setCurrentScan } = useAppState();
 
   return (
     <div className="w-full h-full flex flex-col bg-navy-950 overflow-y-auto pt-20 pb-24 px-4">
@@ -25,15 +25,23 @@ export default function HistoryScreen() {
           {history.map((scan, idx) => {
             const date = new Date(scan.date || scan.meta?.timestamp || new Date().toISOString());
             const isToday = new Date().toDateString() === date.toDateString();
-            const product = scan.product || { name: scan.name || 'Unknown', confidence: scan.confidence ? scan.confidence / 100 : 0, confidence_color: 'red' };
-            const market = scan.market || { recommended_price: scan.price?.average || 0 };
+            
+            // Unified access for both legacy and ValuationResult structures
+            const name = scan.product?.item_name || scan.item_name || scan.product?.name || 'Unknown Item';
+            const price = scan.market?.recommended_price || scan.valuation?.recommendedResalePrice || scan.resale_price_nz || 0;
+            const confidenceScore = scan.confidence?.percentage || (scan.confidence?.score ? scan.confidence.score * 100 : 0) || 0;
+            const confidenceColor = scan.confidence?.color || 'orange';
             
             return (
               <motion.div 
-                key={scan.id || scan.meta?.analysis_id || idx}
+                key={scan.id || scan.meta?.analysisId || idx}
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: idx * 0.05 }}
+                onClick={() => {
+                  setCurrentScan(scan);
+                  setScreen('result');
+                }}
                 className="pw-card flex items-center gap-4 active:scale-[0.98] transition-transform cursor-pointer"
               >
                 <div className="w-12 h-12 bg-navy-950 border border-surface rounded-xl flex items-center justify-center text-snap shrink-0">
@@ -41,10 +49,10 @@ export default function HistoryScreen() {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-semibold text-sm text-ink truncate">{product.name}</h3>
+                  <h3 className="font-display font-semibold text-sm text-ink truncate">{name}</h3>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-sm font-display font-bold text-snap">
-                      {formatCurrency(market.recommended_price)}
+                      {formatCurrency(price)}
                     </span>
                     <span className="text-2xs text-ink-faint flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -54,8 +62,12 @@ export default function HistoryScreen() {
                 </div>
 
                 <div className="flex flex-col items-end shrink-0">
-                  <div className={`pw-tag mb-1 opacity-90 text-[10px] border ${product.confidence_color === 'green' ? 'text-lime border-lime/30 bg-lime/10' : product.confidence_color === 'orange' ? 'text-amber border-amber/30 bg-amber/10' : 'text-rose-400 border-rose-400/30 bg-rose-400/10'}`}>
-                    {Math.round(product.confidence * 100)}% match
+                  <div className={`pw-tag mb-1 opacity-90 text-[10px] border ${
+                    confidenceColor === 'green' ? 'text-lime border-lime/30 bg-lime/10' : 
+                    confidenceColor === 'orange' ? 'text-amber border-amber/30 bg-amber/10' : 
+                    'text-rose-400 border-rose-400/30 bg-rose-400/10'
+                  }`}>
+                    {Math.round(confidenceScore)}% match
                   </div>
                   <ChevronRight className="w-4 h-4 text-ink-faint" />
                 </div>
